@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loading AR Viewer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #101316;
+      color: #f5f7f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at center top, rgba(74, 144, 226, 0.22), transparent 36rem),
+        #101316;
+    }
+
+    main {
+      width: min(28rem, calc(100vw - 2rem));
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .loading-message {
+      margin: 0 0 0.75rem;
+      font-size: clamp(1.55rem, 5vw, 2.35rem);
+      font-weight: 700;
+      line-height: 1.1;
+      animation: flash 0.7s ease-in-out infinite alternate;
+    }
+
+    .status {
+      min-height: 1.5rem;
+      margin: 0;
+      color: #c8d0d7;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .spinner {
+      width: 2.75rem;
+      height: 2.75rem;
+      margin: 0 auto 1.5rem;
+      border: 0.25rem solid rgba(255, 255, 255, 0.22);
+      border-top-color: #5db7ff;
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+
+    @keyframes flash {
+      from {
+        opacity: 0.36;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main aria-live="polite" aria-busy="true">
+    <div class="spinner" aria-hidden="true"></div>
+    <h1 class="loading-message">Loading AR Viewer...</h1>
+    <p class="status" id="device-status">Detecting your device...</p>
+  </main>
+
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=mdj-ar-viewer-79F-Packaged.html">
+  </noscript>
+
+  <script>
+    (function () {
+      var iphonePage = "mdj-ar-viewer-iphone-79F-Packaged.html";
+      var defaultPage = "mdj-ar-viewer-79F-Packaged.html";
+      var userAgent = navigator.userAgent || "";
+      var platform = navigator.platform || "";
+      var status = document.getElementById("device-status");
+
+      var isIPhone = /iPhone/i.test(userAgent) || /iPhone/i.test(platform);
+      var isAndroid = /Android/i.test(userAgent);
+      var targetPage = isIPhone ? iphonePage : defaultPage;
+      var deviceName = "other device";
+
+      if (isIPhone) {
+        deviceName = "iPhone";
+      } else if (isAndroid) {
+        deviceName = "Android";
+      }
+
+      status.textContent = "Detected " + deviceName + ". Opening the correct viewer...";
+
+      window.setTimeout(function () {
+        window.location.replace(targetPage + window.location.search + window.location.hash);
+      }, 650);
+    }());
+  </script>
+</body>
+</html>
