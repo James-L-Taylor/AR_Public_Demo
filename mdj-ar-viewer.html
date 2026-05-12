@@ -1,0 +1,2623 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MDJ AR Viewer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #eef7f4;
+      --muted: #9fb3ae;
+      --panel: rgba(10, 16, 18, 0.74);
+      --panel-strong: rgba(12, 20, 22, 0.9);
+      --line: rgba(255, 255, 255, 0.16);
+      --accent: #2ed3a6;
+      --accent-2: #6fb7ff;
+      --danger: #ff7c6e;
+      --shadow: 0 18px 70px rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #070d0f;
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    a.button {
+      font: inherit;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      background:
+        linear-gradient(160deg, rgba(46, 211, 166, 0.08), transparent 40%),
+        linear-gradient(20deg, rgba(111, 183, 255, 0.12), transparent 46%),
+        #071013;
+    }
+
+    #cameraFeed,
+    #glCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #cameraFeed {
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 180ms ease;
+      background: #06090a;
+    }
+
+    #cameraFeed.live {
+      opacity: 1;
+    }
+
+    #glCanvas {
+      display: block;
+      touch-action: none;
+    }
+
+    .topbar {
+      position: fixed;
+      z-index: 6;
+      top: max(14px, env(safe-area-inset-top));
+      left: max(14px, env(safe-area-inset-left));
+      right: max(14px, env(safe-area-inset-right));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .brand,
+    .controls,
+    .drop-panel,
+    .stats {
+      pointer-events: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px) saturate(140%);
+    }
+
+    .brand {
+      min-width: 210px;
+      padding: 12px 14px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 720;
+      line-height: 1.2;
+    }
+
+    .brand .status {
+      margin-top: 6px;
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .brand .status[data-tone="bad"] {
+      color: var(--danger);
+    }
+
+    .brand .status[data-tone="good"] {
+      color: var(--accent);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 8px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      max-width: 180px;
+      padding: 0 13px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink);
+      cursor: pointer;
+      line-height: 1;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .button:hover {
+      border-color: rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .button:focus-visible {
+      outline: 2px solid var(--accent-2);
+      outline-offset: 2px;
+    }
+
+    .button.primary {
+      border-color: rgba(46, 211, 166, 0.54);
+      background: rgba(46, 211, 166, 0.18);
+    }
+
+    .button[disabled],
+    .button.disabled,
+    .button[aria-disabled="true"] {
+      color: rgba(238, 247, 244, 0.44);
+      border-color: rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.04);
+      cursor: default;
+      pointer-events: auto;
+    }
+
+    .quicklook-image {
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #filePicker {
+      display: none;
+    }
+
+    .drop-panel {
+      position: fixed;
+      z-index: 5;
+      left: max(14px, env(safe-area-inset-left));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      width: min(430px, calc(100vw - 28px));
+      padding: 14px;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .drop-panel.dragging {
+      border-color: rgba(46, 211, 166, 0.85);
+      background: rgba(20, 54, 48, 0.84);
+      transform: translateY(-3px);
+    }
+
+    .drop-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .drop-title strong {
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .file-name {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .progress {
+      height: 4px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .progress span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 220ms ease;
+    }
+
+    .stats {
+      position: fixed;
+      z-index: 5;
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      width: min(330px, calc(100vw - 28px));
+      padding: 12px;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: minmax(78px, 0.75fr) minmax(0, 1fr);
+      gap: 12px;
+      padding: 6px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.09);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .stat-row:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .stat-label {
+      color: var(--muted);
+    }
+
+    .stat-value {
+      overflow: hidden;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .escape-bar {
+      position: fixed;
+      z-index: 7;
+      left: max(14px, env(safe-area-inset-left));
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      display: none;
+      pointer-events: none;
+    }
+
+    .escape-bar .button {
+      width: min(260px, 100%);
+      max-width: none;
+      margin: 0 auto;
+      pointer-events: auto;
+    }
+
+    body.gallery-viewer #cameraFeed,
+    body.gallery-viewer #openButton,
+    body.gallery-viewer #cameraButton,
+    body.gallery-viewer #dropPanel,
+    body.gallery-viewer .stats {
+      display: none !important;
+    }
+
+    body.gallery-viewer .escape-bar {
+      display: flex;
+      justify-content: center;
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .brand,
+      .controls {
+        width: 100%;
+      }
+
+      .controls {
+        justify-content: stretch;
+      }
+
+      .button {
+        flex: 1 1 90px;
+        min-width: 0;
+      }
+
+      .drop-panel,
+      .stats {
+        left: max(14px, env(safe-area-inset-left));
+        right: max(14px, env(safe-area-inset-right));
+        width: auto;
+      }
+
+      .drop-panel {
+        bottom: calc(max(14px, env(safe-area-inset-bottom)) + 142px);
+      }
+
+      body.gallery-viewer .controls {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      body.gallery-viewer .button {
+        max-width: none;
+      }
+
+      body.gallery-viewer #resetButton {
+        grid-column: 1 / -1;
+      }
+
+      body.gallery-viewer .escape-bar {
+        bottom: calc(max(14px, env(safe-area-inset-bottom)) + 8px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="stage" aria-label="MDJ AR Viewer">
+    <video id="cameraFeed" playsinline muted autoplay></video>
+    <canvas id="glCanvas"></canvas>
+  </main>
+
+  <input id="filePicker" type="file" accept=".mdj,.json,application/json" tabindex="-1" aria-hidden="true">
+
+  <section class="topbar" aria-label="Viewer controls">
+    <div class="brand">
+      <h1>MDJ AR Viewer</h1>
+      <div id="status" class="status">Starting camera...</div>
+    </div>
+
+    <div class="controls">
+      <a id="galleryButton" class="button" href="gallery.html">Gallery</a>
+      <button id="openButton" class="button primary" type="button">Open MDJ</button>
+      <button id="cameraButton" class="button" type="button">Camera</button>
+      <a id="xrButton" class="button disabled" role="button" aria-disabled="true">
+        <img id="quickLookImage" class="quicklook-image" alt="">
+        <span id="xrButtonText">View in AR</span>
+      </a>
+      <button id="resetButton" class="button" type="button">Reset</button>
+    </div>
+  </section>
+
+  <section id="dropPanel" class="drop-panel" aria-label="Drop MDJ file">
+    <div class="drop-title">
+      <strong>Drop .mdj</strong>
+      <span id="fileName" class="file-name">No file loaded</span>
+    </div>
+    <div class="progress" aria-hidden="true"><span id="progressFill"></span></div>
+  </section>
+
+  <section class="stats" aria-label="Model stats">
+    <div class="stat-row">
+      <span class="stat-label">Meshes</span>
+      <span id="meshCount" class="stat-value">1 demo</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Triangles</span>
+      <span id="triangleCount" class="stat-value">12</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">References</span>
+      <span id="referenceCount" class="stat-value">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Selected</span>
+      <span id="selectedValue" class="stat-value">None</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Span</span>
+      <span id="spanValue" class="stat-value">1.20 units</span>
+    </div>
+  </section>
+
+  <nav class="escape-bar" aria-label="Viewer escape">
+    <a id="escapeButton" class="button" href="gallery.html">Back to Gallery</a>
+  </nav>
+
+  <script src="mdj-usdz-core.js"></script>
+  <script>
+  (() => {
+    "use strict";
+
+    const canvas = document.getElementById("glCanvas");
+    const video = document.getElementById("cameraFeed");
+    const statusEl = document.getElementById("status");
+    const filePicker = document.getElementById("filePicker");
+    const galleryButton = document.getElementById("galleryButton");
+    const escapeButton = document.getElementById("escapeButton");
+    const openButton = document.getElementById("openButton");
+    const cameraButton = document.getElementById("cameraButton");
+    const xrButton = document.getElementById("xrButton");
+    const xrButtonText = document.getElementById("xrButtonText");
+    const quickLookImage = document.getElementById("quickLookImage");
+    const resetButton = document.getElementById("resetButton");
+    const dropPanel = document.getElementById("dropPanel");
+    const progressFill = document.getElementById("progressFill");
+    const fileNameEl = document.getElementById("fileName");
+    const meshCountEl = document.getElementById("meshCount");
+    const triangleCountEl = document.getElementById("triangleCount");
+    const referenceCountEl = document.getElementById("referenceCount");
+    const selectedValueEl = document.getElementById("selectedValue");
+    const spanValueEl = document.getElementById("spanValue");
+
+    const DEFAULT_COLOR = [0.72, 0.76, 0.73, 1];
+    const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+    const RUNNING_FROM_FILE = window.location.protocol === "file:";
+    const INCHES_TO_METERS = 0.0254;
+    const tinyGif = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    const queryParams = new URLSearchParams(window.location.search);
+    const initialFileParam = queryParams.get("file");
+    const AR_LAUNCH = queryParams.get("ar") === "1";
+    const GALLERY_LAUNCH = Boolean(initialFileParam);
+    const iOSDevice = isIOSDevice();
+    const safariBrowser = isSafariBrowser();
+    const appleUSDZCapable = iOSDevice && safariBrowser && isAppleQuickLookCapable();
+    const openInSafariCapable = iOSDevice && !safariBrowser;
+
+    let gl = null;
+    let program = null;
+    let pickProgram = null;
+    let attribs = null;
+    let pickAttribs = null;
+    let uniforms = null;
+    let pickUniforms = null;
+    let pickFramebuffer = null;
+    let pickTexture = null;
+    let pickDepthBuffer = null;
+    let pickWidth = 0;
+    let pickHeight = 0;
+    let cameraStream = null;
+    let xrSession = null;
+    let xrReferenceSpace = null;
+    let xrViewerSpace = null;
+    let xrHitTestSource = null;
+    let xrMode = false;
+    let xrModelPlaced = false;
+    let xrReticleVisible = false;
+    let xrHitSeen = false;
+    let xrNoHitTimer = null;
+    let reticleGeometry = null;
+    let animationStarted = false;
+    let selectedItem = null;
+    let selectedIndex = -1;
+    let currentModelFileName = "";
+    let usdzScene = null;
+    let quickLookObjectUrl = "";
+    let quickLookObjectUrlFile = "";
+    let usdzPromise = null;
+    let usdzPromiseFile = "";
+    let webXRSupported = false;
+    let webXRChecked = false;
+
+    const view = {
+      yaw: -0.52,
+      pitch: -0.22,
+      zoom: 3.1,
+      panX: 0,
+      panY: 0,
+      activePointers: new Map(),
+      lastPinchDistance: 0,
+      lastPinchCenter: null
+    };
+
+    const scene = {
+      name: "Demo",
+      geometries: new Set(),
+      renderItems: [],
+      pendingReferences: [],
+      namedGeometries: new Map(),
+      namedColors: new Map(),
+      meshCount: 0,
+      referenceCount: 0,
+      triangleCount: 12,
+      bounds: createEmptyBounds(),
+      radius: 1,
+      maxSpan: 1.2,
+      centerScaleMatrix: copyMatrix(IDENTITY),
+      physicalScaleMatrix: copyMatrix(IDENTITY)
+    };
+
+    const scratch = {
+      projection: mat4(),
+      view: mat4(),
+      model: mat4(),
+      placement: mat4(),
+      xrHit: mat4(),
+      xrPlaced: mat4(),
+      temp: mat4(),
+      dragModel: mat4(),
+      rotation: mat4(),
+      color: new Float32Array(4),
+      pixel: new Uint8Array(4)
+    };
+
+    function setStatus(text, tone = "") {
+      statusEl.textContent = text;
+      statusEl.dataset.tone = tone;
+    }
+
+    function setProgress(percent) {
+      progressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+    }
+
+    function formatSpan(value) {
+      if (!Number.isFinite(value)) {
+        return "0 in";
+      }
+      if (Math.abs(value) >= 100) {
+        return `${value.toFixed(0)} in`;
+      }
+      if (Math.abs(value) >= 10) {
+        return `${value.toFixed(1)} in`;
+      }
+      return `${value.toFixed(2)} in`;
+    }
+
+    function updateStats() {
+      meshCountEl.textContent = scene.name === "Demo" ? "1 demo" : formatNumber(scene.meshCount);
+      triangleCountEl.textContent = formatNumber(scene.triangleCount);
+      referenceCountEl.textContent = formatNumber(scene.referenceCount);
+      selectedValueEl.textContent = selectedItem ? displayName(selectedItem.name) : "None";
+      spanValueEl.textContent = formatSpan(scene.maxSpan);
+    }
+
+    function applyViewerMode() {
+      galleryButton.href = galleryUrl(initialFileParam || "");
+      escapeButton.href = galleryButton.href;
+      if (!GALLERY_LAUNCH) {
+        return;
+      }
+
+      document.body.classList.add("gallery-viewer");
+      statusEl.textContent = "Loading model...";
+      setXRButtonText("View in AR");
+      xrButton.classList.add("primary");
+      dropPanel.hidden = true;
+      dropPanel.setAttribute("aria-hidden", "true");
+      document.querySelector(".stats").hidden = true;
+    }
+
+    function galleryUrl(fileName) {
+      const url = new URL("gallery.html", window.location.href);
+      if (fileName) {
+        url.searchParams.set("file", fileName);
+      }
+      return url.href;
+    }
+
+    function displayName(name) {
+      if (!name) {
+        return "Unnamed";
+      }
+      return String(name).replace(/\s+/g, " ").trim();
+    }
+
+    function cameraUnavailableMessage() {
+      if (RUNNING_FROM_FILE) {
+        return "This browser blocks camera access for local files. MDJ viewing still works.";
+      }
+      if (!window.isSecureContext) {
+        return "This browser requires a secure context for camera access. MDJ viewing still works.";
+      }
+      return "This browser does not expose camera access. MDJ viewing still works.";
+    }
+
+    function initGL() {
+      gl = canvas.getContext("webgl", {
+        alpha: true,
+        antialias: true,
+        depth: true,
+        preserveDrawingBuffer: false,
+        xrCompatible: true
+      });
+
+      if (!gl) {
+        setStatus("WebGL is unavailable in this browser.", "bad");
+        return false;
+      }
+
+      const vertexShaderSource = `
+        attribute vec3 aPosition;
+        attribute vec3 aNormal;
+
+        uniform mat4 uProjection;
+        uniform mat4 uView;
+        uniform mat4 uModel;
+
+        varying vec3 vNormal;
+        varying vec3 vWorld;
+
+        void main() {
+          vec4 worldPosition = uModel * vec4(aPosition, 1.0);
+          vWorld = worldPosition.xyz;
+          vNormal = normalize(mat3(uModel) * aNormal);
+          gl_Position = uProjection * uView * worldPosition;
+        }
+      `;
+
+      const fragmentShaderSource = `
+        precision mediump float;
+
+        uniform vec4 uColor;
+        uniform vec3 uLightDirection;
+
+        varying vec3 vNormal;
+        varying vec3 vWorld;
+
+        void main() {
+          vec3 n = normalize(vNormal);
+          float key = max(dot(n, normalize(uLightDirection)), 0.0);
+          float rim = pow(1.0 - max(abs(n.z), 0.0), 2.0) * 0.16;
+          vec3 color = uColor.rgb * (0.42 + key * 0.62) + rim;
+          gl_FragColor = vec4(color, uColor.a);
+        }
+      `;
+
+      const pickVertexShaderSource = `
+        attribute vec3 aPosition;
+
+        uniform mat4 uProjection;
+        uniform mat4 uView;
+        uniform mat4 uModel;
+
+        void main() {
+          gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
+        }
+      `;
+
+      const pickFragmentShaderSource = `
+        precision mediump float;
+
+        uniform vec4 uPickColor;
+
+        void main() {
+          gl_FragColor = uPickColor;
+        }
+      `;
+
+      program = createProgram(vertexShaderSource, fragmentShaderSource);
+      pickProgram = createProgram(pickVertexShaderSource, pickFragmentShaderSource);
+      attribs = {
+        position: gl.getAttribLocation(program, "aPosition"),
+        normal: gl.getAttribLocation(program, "aNormal")
+      };
+      pickAttribs = {
+        position: gl.getAttribLocation(pickProgram, "aPosition")
+      };
+      uniforms = {
+        projection: gl.getUniformLocation(program, "uProjection"),
+        view: gl.getUniformLocation(program, "uView"),
+        model: gl.getUniformLocation(program, "uModel"),
+        color: gl.getUniformLocation(program, "uColor"),
+        lightDirection: gl.getUniformLocation(program, "uLightDirection")
+      };
+      pickUniforms = {
+        projection: gl.getUniformLocation(pickProgram, "uProjection"),
+        view: gl.getUniformLocation(pickProgram, "uView"),
+        model: gl.getUniformLocation(pickProgram, "uModel"),
+        color: gl.getUniformLocation(pickProgram, "uPickColor")
+      };
+
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LEQUAL);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.disable(gl.CULL_FACE);
+      gl.clearColor(0, 0, 0, 0);
+
+      return true;
+    }
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        const message = gl.getShaderInfoLog(shader) || "Unknown shader error";
+        gl.deleteShader(shader);
+        throw new Error(message);
+      }
+      return shader;
+    }
+
+    function createProgram(vertexSource, fragmentSource) {
+      const vertex = createShader(gl.VERTEX_SHADER, vertexSource);
+      const fragment = createShader(gl.FRAGMENT_SHADER, fragmentSource);
+      const linkedProgram = gl.createProgram();
+      gl.attachShader(linkedProgram, vertex);
+      gl.attachShader(linkedProgram, fragment);
+      gl.linkProgram(linkedProgram);
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+
+      if (!gl.getProgramParameter(linkedProgram, gl.LINK_STATUS)) {
+        const message = gl.getProgramInfoLog(linkedProgram) || "Unknown program link error";
+        gl.deleteProgram(linkedProgram);
+        throw new Error(message);
+      }
+      return linkedProgram;
+    }
+
+    async function startCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(cameraUnavailableMessage());
+      }
+
+      stopCamera();
+      const constraints = {
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = cameraStream;
+      await video.play();
+      video.classList.add("live");
+      cameraButton.textContent = "Stop Camera";
+      setStatus("Camera live. Drop an MDJ file.", "good");
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        for (const track of cameraStream.getTracks()) {
+          track.stop();
+        }
+      }
+      cameraStream = null;
+      video.srcObject = null;
+      video.classList.remove("live");
+      cameraButton.textContent = "Camera";
+    }
+
+    async function updateXRSupport() {
+      if (appleUSDZCapable || openInSafariCapable) {
+        webXRSupported = false;
+        webXRChecked = true;
+        configureXRButton();
+        return;
+      }
+
+      if (!navigator.xr || !navigator.xr.isSessionSupported) {
+        webXRSupported = false;
+        webXRChecked = true;
+        configureXRButton();
+        return;
+      }
+
+      try {
+        webXRSupported = await navigator.xr.isSessionSupported("immersive-ar");
+      } catch {
+        webXRSupported = false;
+      }
+
+      webXRChecked = true;
+      configureXRButton();
+    }
+
+    function configureXRButton() {
+      xrButton.removeAttribute("rel");
+      xrButton.removeAttribute("download");
+      xrButton.removeAttribute("aria-label");
+
+      if (xrSession) {
+        xrButton.removeAttribute("href");
+        setXRButtonText("Exit AR");
+        xrButton.title = "Exit WebXR AR.";
+        enableXRButton();
+        return;
+      }
+
+      if (openInSafariCapable) {
+        setXRButtonText("Open in Safari for AR");
+        const safariUrl = safariUrlForCurrentModel();
+        if (safariUrl) {
+          xrButton.href = safariUrl;
+          xrButton.title = "Open this model in Safari for AR Quick Look.";
+          enableXRButton();
+        } else {
+          xrButton.removeAttribute("href");
+          xrButton.title = "Open this viewer from the gallery to use Safari AR.";
+          disableXRButton();
+        }
+        return;
+      }
+
+      if (appleUSDZCapable) {
+        setXRButtonText(quickLookObjectUrl && quickLookObjectUrlFile === currentModelFileName ? "View in AR" : "Preparing AR");
+        xrButton.setAttribute("rel", "ar");
+        if (quickLookObjectUrl && quickLookObjectUrlFile === currentModelFileName) {
+          xrButton.href = quickLookUrl(quickLookObjectUrl);
+          xrButton.setAttribute("aria-label", "Open model in AR Quick Look");
+          xrButton.title = "Open in Apple AR Quick Look.";
+          enableXRButton();
+        } else {
+          xrButton.removeAttribute("href");
+          xrButton.setAttribute("aria-label", "Preparing model for AR Quick Look");
+          xrButton.title = usdzScene ? "Preparing USDZ..." : "Load an MDJ model before opening AR.";
+          disableXRButton();
+        }
+        return;
+      }
+
+      xrButton.removeAttribute("href");
+      setXRButtonText("View in AR");
+      if (webXRSupported) {
+        xrButton.title = "Start true-size WebXR AR placement.";
+        enableXRButton();
+      } else {
+        xrButton.title = webXRChecked
+          ? (RUNNING_FROM_FILE ? "WebXR AR is usually unavailable from local files." : "WebXR AR is unavailable here.")
+          : "Checking WebXR AR support...";
+        disableXRButton();
+      }
+    }
+
+    function setXRButtonText(text) {
+      xrButtonText.textContent = text;
+    }
+
+    function enableXRButton() {
+      xrButton.classList.remove("disabled");
+      xrButton.removeAttribute("aria-disabled");
+      xrButton.removeAttribute("tabindex");
+    }
+
+    function disableXRButton() {
+      xrButton.classList.add("disabled");
+      xrButton.setAttribute("aria-disabled", "true");
+      xrButton.setAttribute("tabindex", "-1");
+    }
+
+    function isXRButtonDisabled() {
+      return xrButton.classList.contains("disabled") || xrButton.getAttribute("aria-disabled") === "true";
+    }
+
+    async function toggleXR() {
+      if (xrSession) {
+        await xrSession.end();
+        return;
+      }
+
+      if (!navigator.xr) {
+        setStatus("WebXR AR is unavailable here.", "bad");
+        return;
+      }
+
+      try {
+        if (gl.makeXRCompatible) {
+          await gl.makeXRCompatible();
+        }
+
+        const sessionInit = {
+          requiredFeatures: ["hit-test"],
+          optionalFeatures: ["local-floor"]
+        };
+
+        xrSession = await navigator.xr.requestSession("immersive-ar", sessionInit);
+        xrMode = true;
+        xrModelPlaced = false;
+        xrReticleVisible = false;
+        xrHitSeen = false;
+        setXRButtonText("Exit AR");
+        enableXRButton();
+        xrSession.addEventListener("select", placeARModel);
+        xrSession.addEventListener("end", () => {
+          clearXRNoHitTimer();
+          xrMode = false;
+          xrSession = null;
+          xrReferenceSpace = null;
+          xrViewerSpace = null;
+          if (xrHitTestSource) {
+            xrHitTestSource.cancel();
+          }
+          xrHitTestSource = null;
+          xrModelPlaced = false;
+          xrReticleVisible = false;
+          xrHitSeen = false;
+          configureXRButton();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          resizeCanvas();
+          setStatus("AR closed.", "");
+          if (!animationStarted) {
+            requestAnimationFrame(renderFrame);
+          }
+        }, { once: true });
+
+        const layer = new XRWebGLLayer(xrSession, gl, { alpha: true, antialias: true });
+        xrSession.updateRenderState({ baseLayer: layer });
+        xrReferenceSpace = await xrSession.requestReferenceSpace("local");
+        xrViewerSpace = await xrSession.requestReferenceSpace("viewer");
+        xrHitTestSource = await xrSession.requestHitTestSource({ space: xrViewerSpace });
+        ensureReticleGeometry();
+        setStatus("Scan for a surface, then tap to place at true size.", "good");
+        startXRNoHitTimer();
+        xrSession.requestAnimationFrame(renderXRFrame);
+      } catch (error) {
+        clearXRNoHitTimer();
+        xrMode = false;
+        xrSession = null;
+        xrReferenceSpace = null;
+        xrViewerSpace = null;
+        if (xrHitTestSource) {
+          xrHitTestSource.cancel();
+        }
+        xrHitTestSource = null;
+        xrModelPlaced = false;
+        xrReticleVisible = false;
+        xrHitSeen = false;
+        configureXRButton();
+        setStatus(error.message || "Could not start AR.", "bad");
+      }
+    }
+
+    function renderXRFrame(time, frame) {
+      const session = frame.session;
+      const pose = frame.getViewerPose(xrReferenceSpace);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+      if (pose) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        updateXRHitPose(frame);
+        for (const xrView of pose.views) {
+          const viewport = session.renderState.baseLayer.getViewport(xrView);
+          gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+          if (xrModelPlaced) {
+            renderScene(xrView.projectionMatrix, xrView.transform.inverse.matrix, scratch.xrPlaced, "physical");
+          }
+          if (xrReticleVisible) {
+            renderReticle(xrView.projectionMatrix, xrView.transform.inverse.matrix);
+          }
+        }
+      }
+
+      if (xrMode) {
+        session.requestAnimationFrame(renderXRFrame);
+      }
+    }
+
+    function updateXRHitPose(frame) {
+      xrReticleVisible = false;
+      if (!xrHitTestSource) {
+        return;
+      }
+
+      const hitTestResults = frame.getHitTestResults(xrHitTestSource);
+      if (!hitTestResults.length) {
+        return;
+      }
+
+      const hitPose = hitTestResults[0].getPose(xrReferenceSpace);
+      if (!hitPose) {
+        return;
+      }
+
+      copyInto(scratch.xrHit, hitPose.transform.matrix);
+      xrReticleVisible = true;
+      xrHitSeen = true;
+      clearXRNoHitTimer();
+    }
+
+    function startXRNoHitTimer() {
+      clearXRNoHitTimer();
+      xrNoHitTimer = setTimeout(async () => {
+        if (!xrSession || xrHitSeen) {
+          return;
+        }
+        setStatus("No AR surface found. Try more light, texture, and slow movement.", "bad");
+        try {
+          await xrSession.end();
+        } catch {
+          // Session may already be ending.
+        }
+      }, 12000);
+    }
+
+    function clearXRNoHitTimer() {
+      if (xrNoHitTimer) {
+        clearTimeout(xrNoHitTimer);
+        xrNoHitTimer = null;
+      }
+    }
+
+    function placeARModel() {
+      if (!xrMode || !xrReticleVisible) {
+        setStatus("Point at a detected surface before placing.", "");
+        return;
+      }
+
+      copyInto(scratch.xrPlaced, scratch.xrHit);
+      xrModelPlaced = true;
+      setStatus("Placed true size. Tap another surface to move it.", "good");
+    }
+
+    async function loadFile(file) {
+      if (!file) {
+        return;
+      }
+
+      const lowerName = file.name.toLowerCase();
+      if (!lowerName.endsWith(".mdj") && !lowerName.endsWith(".json")) {
+        setStatus("Choose an .mdj file.", "bad");
+        return;
+      }
+
+      fileNameEl.textContent = file.name;
+      setProgress(8);
+      setStatus(`Reading ${file.name}...`);
+
+      try {
+        const text = await file.text();
+        setProgress(28);
+        await nextFrame();
+        setStatus("Parsing MDJ JSON...");
+
+        const parsed = JSON.parse(text);
+        setProgress(48);
+        await nextFrame();
+
+        const roots = extractMDJRoots(parsed);
+        buildMDJScene(roots, file.name);
+        setQuickLookScene(roots, file.name);
+        setProgress(100);
+        setStatus(`Loaded ${file.name}.`, "good");
+        if (appleUSDZCapable) {
+          prepareUSDZ(false);
+        }
+        setTimeout(() => setProgress(0), 700);
+      } catch (error) {
+        setProgress(0);
+        fileNameEl.textContent = "Load failed";
+        resetQuickLookState();
+        configureXRButton();
+        setStatus(error.message || "Could not load MDJ.", "bad");
+      }
+    }
+
+    async function loadFromQuery() {
+      const fileParam = initialFileParam;
+      if (!fileParam) {
+        return;
+      }
+
+      const url = resolveFileParam(fileParam);
+      const fileName = decodeURIComponent(url.pathname.split("/").pop() || "model.mdj");
+      const lowerName = fileName.toLowerCase();
+      if (!lowerName.endsWith(".mdj") && !lowerName.endsWith(".json")) {
+        return;
+      }
+
+      fileNameEl.textContent = fileName;
+      galleryButton.href = galleryUrl(fileName);
+      escapeButton.href = galleryButton.href;
+      setProgress(8);
+      setStatus(`Fetching ${fileName}...`);
+
+      try {
+        const response = await fetch(url.href);
+        if (!response.ok) {
+          throw new Error(`Could not fetch ${fileName}.`);
+        }
+
+        const text = await response.text();
+        setProgress(32);
+        await nextFrame();
+        setStatus("Parsing MDJ JSON...");
+
+        const parsed = JSON.parse(text);
+        setProgress(52);
+        await nextFrame();
+
+        const roots = extractMDJRoots(parsed);
+        buildMDJScene(roots, fileName);
+        setQuickLookScene(roots, fileName);
+        setProgress(100);
+        const readyMessage = AR_LAUNCH
+          ? `Loaded ${fileName}. Tap View in AR to place it.`
+          : `Loaded ${fileName}.`;
+        setStatus(readyMessage, "good");
+        if (appleUSDZCapable) {
+          prepareUSDZ(false);
+        }
+        setTimeout(() => setProgress(0), 700);
+      } catch (error) {
+        setProgress(0);
+        fileNameEl.textContent = "Load failed";
+        resetQuickLookState();
+        configureXRButton();
+        setStatus(error.message || "Could not load MDJ.", "bad");
+      }
+    }
+
+    function resolveFileParam(fileParam) {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(fileParam) || fileParam.startsWith("/")) {
+        return new URL(fileParam, window.location.href);
+      }
+      const encodedPath = fileParam.split("/").map((part) => encodeURIComponent(part)).join("/");
+      return new URL(encodedPath, window.location.href);
+    }
+
+    function setQuickLookScene(roots, fileName) {
+      resetQuickLookState();
+      currentModelFileName = fileName || "";
+
+      if (!window.MDJUSDZ || typeof window.MDJUSDZ.buildMDJScene !== "function") {
+        configureXRButton();
+        return;
+      }
+
+      try {
+        usdzScene = window.MDJUSDZ.buildMDJScene(roots, { fileName: currentModelFileName });
+      } catch {
+        usdzScene = null;
+      }
+
+      configureXRButton();
+    }
+
+    async function prepareUSDZ() {
+      if (!appleUSDZCapable || !usdzScene || !currentModelFileName) {
+        return false;
+      }
+
+      if (!window.MDJUSDZ || typeof window.MDJUSDZ.exportUSDZ !== "function") {
+        setStatus("MDJ converter core did not load.", "bad");
+        return false;
+      }
+
+      if (quickLookObjectUrl && quickLookObjectUrlFile === currentModelFileName) {
+        return true;
+      }
+
+      if (usdzPromise && usdzPromiseFile === currentModelFileName) {
+        return Boolean(await usdzPromise);
+      }
+
+      const fileName = currentModelFileName;
+      usdzPromiseFile = fileName;
+      usdzPromise = (async () => {
+        setStatus("Preparing Apple AR...");
+        setXRButtonText("Preparing AR");
+        disableXRButton();
+        await nextFrame();
+
+        const result = window.MDJUSDZ.exportUSDZ(usdzScene, { fileName });
+        if (!result || !result.bytes || !result.bytes.length) {
+          throw new Error("Could not create USDZ.");
+        }
+        if (fileName !== currentModelFileName) {
+          return false;
+        }
+
+        revokeQuickLookObjectUrl();
+        const usdz = typeof File === "function"
+          ? new File([result.bytes], result.fileName, { type: result.mimeType })
+          : new Blob([result.bytes], { type: result.mimeType });
+        quickLookObjectUrl = URL.createObjectURL(usdz);
+        quickLookObjectUrlFile = fileName;
+        configureXRButton();
+        setStatus(`Created ${result.fileName}.`, "good");
+        return true;
+      })();
+
+      try {
+        return Boolean(await usdzPromise);
+      } catch (error) {
+        if (usdzPromiseFile === currentModelFileName) {
+          configureXRButton();
+          setStatus(error.message || "Could not create USDZ.", "bad");
+        }
+        return false;
+      } finally {
+        if (usdzPromiseFile === currentModelFileName) {
+          usdzPromise = null;
+          usdzPromiseFile = "";
+        }
+      }
+    }
+
+    function quickLookUrl(objectUrl) {
+      return `${objectUrl}#allowsContentScaling=0`;
+    }
+
+    function safariUrlForCurrentModel() {
+      if (!initialFileParam || (window.location.protocol !== "https:" && window.location.protocol !== "http:")) {
+        return "";
+      }
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("file", initialFileParam);
+      return `x-safari-${url.href}`;
+    }
+
+    function resetQuickLookState() {
+      revokeQuickLookObjectUrl();
+      currentModelFileName = "";
+      usdzScene = null;
+      usdzPromise = null;
+      usdzPromiseFile = "";
+    }
+
+    function revokeQuickLookObjectUrl() {
+      if (quickLookObjectUrl) {
+        URL.revokeObjectURL(quickLookObjectUrl);
+      }
+      quickLookObjectUrl = "";
+      quickLookObjectUrlFile = "";
+    }
+
+    function extractMDJRoots(parsed) {
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+
+      if (parsed && Array.isArray(parsed.objects)) {
+        return parsed.objects;
+      }
+
+      if (parsed && parsed.model && Array.isArray(parsed.model.objects)) {
+        return parsed.model.objects;
+      }
+
+      throw new Error("MDJ root must be an array or an object with an objects array.");
+    }
+
+    function buildMDJScene(roots, fileName) {
+      clearScene();
+
+      scene.name = fileName;
+      scene.bounds = createEmptyBounds();
+      scene.namedGeometries = new Map();
+      scene.namedColors = new Map();
+      scene.pendingReferences = [];
+      scene.meshCount = 0;
+      scene.referenceCount = 0;
+      scene.triangleCount = 0;
+
+      const rootList = Array.isArray(roots) ? roots : [roots];
+      for (const object of rootList) {
+        buildNode(object, IDENTITY, DEFAULT_COLOR);
+      }
+
+      resolvePendingReferences();
+      finalizeSceneBounds();
+      updateStats();
+      resetView(false);
+    }
+
+    function clearScene() {
+      resetQuickLookState();
+
+      for (const geometry of scene.geometries) {
+        gl.deleteBuffer(geometry.positionBuffer);
+        gl.deleteBuffer(geometry.normalBuffer);
+      }
+
+      scene.geometries.clear();
+      scene.renderItems = [];
+      scene.pendingReferences = [];
+      scene.namedGeometries.clear();
+      scene.namedColors.clear();
+      scene.meshCount = 0;
+      scene.referenceCount = 0;
+      scene.triangleCount = 0;
+      scene.bounds = createEmptyBounds();
+      selectedItem = null;
+      selectedIndex = -1;
+    }
+
+    function buildNode(object, parentWorldMatrix, inheritedColor) {
+      if (!object || typeof object !== "object") {
+        return null;
+      }
+
+      const localMatrix = matrixFromObject(object);
+      const worldMatrix = mat4();
+      multiply(worldMatrix, parentWorldMatrix, localMatrix);
+
+      const objectName = typeof object.name === "string" ? object.name : "";
+      const ownColor = chooseObjectColor(object, inheritedColor);
+      if (objectName) {
+        scene.namedColors.set(objectName, ownColor);
+      }
+
+      let geometry = null;
+      let isReference = false;
+
+      if (Array.isArray(object.vertexpositions)) {
+        geometry = createGeometry(object, objectName || "mesh");
+        if (objectName) {
+          scene.namedGeometries.set(objectName, geometry);
+        }
+      } else if (typeof object.referenceobjectname === "string") {
+        geometry = scene.namedGeometries.get(object.referenceobjectname) || null;
+        isReference = true;
+        scene.referenceCount += 1;
+      }
+
+      if (geometry) {
+        addRenderItem(geometry, worldMatrix, ownColor, objectName, isReference);
+        if (objectName && isReference) {
+          scene.namedGeometries.set(objectName, geometry);
+        }
+      } else if (isReference) {
+        scene.pendingReferences.push({
+          refName: object.referenceobjectname,
+          objectName,
+          worldMatrix: copyMatrix(worldMatrix),
+          color: ownColor
+        });
+      }
+
+      if (Array.isArray(object.objects)) {
+        for (const child of object.objects) {
+          buildNode(child, worldMatrix, ownColor);
+        }
+      }
+
+      return worldMatrix;
+    }
+
+    function resolvePendingReferences() {
+      if (!scene.pendingReferences.length) {
+        return;
+      }
+
+      const unresolved = [];
+      for (const pending of scene.pendingReferences) {
+        const geometry = scene.namedGeometries.get(pending.refName);
+        if (geometry) {
+          const refColor = scene.namedColors.get(pending.refName);
+          const color = pending.color || refColor || DEFAULT_COLOR;
+          addRenderItem(geometry, pending.worldMatrix, color, pending.objectName, true);
+          if (pending.objectName) {
+            scene.namedGeometries.set(pending.objectName, geometry);
+          }
+        } else {
+          unresolved.push(pending.refName);
+        }
+      }
+
+      if (unresolved.length && window.__MDJ_DEBUG) {
+        console.info("MDJ references without direct mesh geometry:", unresolved.length, unresolved.slice(0, 20));
+      }
+
+      scene.pendingReferences = [];
+    }
+
+    function addRenderItem(geometry, worldMatrix, color, name, isReference) {
+      const item = {
+        geometry,
+        worldMatrix: copyMatrix(worldMatrix),
+        normalizedMatrix: mat4(),
+        physicalMatrix: mat4(),
+        dragOffset: [0, 0, 0],
+        color: color || DEFAULT_COLOR,
+        name,
+        isReference
+      };
+
+      scene.renderItems.push(item);
+      scene.triangleCount += geometry.triangleCount;
+      if (!isReference) {
+        scene.meshCount += 1;
+      }
+    }
+
+    function finalizeSceneBounds() {
+      scene.bounds = createEmptyBounds();
+
+      for (const item of scene.renderItems) {
+        includeTransformedBounds(scene.bounds, item.geometry.bounds, item.worldMatrix);
+      }
+
+      if (!boundsReady(scene.bounds)) {
+        scene.bounds = {
+          min: [-0.6, -0.6, -0.6],
+          max: [0.6, 0.6, 0.6]
+        };
+      }
+
+      const center = [
+        (scene.bounds.min[0] + scene.bounds.max[0]) * 0.5,
+        (scene.bounds.min[1] + scene.bounds.max[1]) * 0.5,
+        (scene.bounds.min[2] + scene.bounds.max[2]) * 0.5
+      ];
+      const span = [
+        scene.bounds.max[0] - scene.bounds.min[0],
+        scene.bounds.max[1] - scene.bounds.min[1],
+        scene.bounds.max[2] - scene.bounds.min[2]
+      ];
+      const maxSpan = Math.max(span[0], span[1], span[2], 0.0001);
+      const fitScale = 1.2 / maxSpan;
+
+      scene.maxSpan = maxSpan;
+      scene.radius = Math.max(0.7, Math.hypot(span[0], span[1], span[2]) * fitScale * 0.5);
+      scene.centerScaleMatrix = makeCenterScaleMatrix(center, fitScale);
+      scene.physicalScaleMatrix = makePhysicalScaleMatrix(scene.bounds, INCHES_TO_METERS);
+
+      for (const item of scene.renderItems) {
+        multiply(item.normalizedMatrix, scene.centerScaleMatrix, item.worldMatrix);
+        multiply(item.physicalMatrix, scene.physicalScaleMatrix, item.worldMatrix);
+      }
+    }
+
+    function createGeometry(object, label) {
+      const sourcePositions = object.vertexpositions;
+      const sourceIndexes = Array.isArray(object.vertexindexes) ? object.vertexindexes : null;
+
+      if (!Array.isArray(sourcePositions) || sourcePositions.length < 9) {
+        throw new Error(`${label} has no usable vertexpositions.`);
+      }
+
+      let positions;
+      if (sourceIndexes && sourceIndexes.length >= 3) {
+        positions = new Float32Array(sourceIndexes.length * 3);
+        for (let i = 0; i < sourceIndexes.length; i += 1) {
+          const sourceIndex = sourceIndexes[i] * 3;
+          const targetIndex = i * 3;
+          positions[targetIndex] = sourcePositions[sourceIndex] || 0;
+          positions[targetIndex + 1] = sourcePositions[sourceIndex + 1] || 0;
+          positions[targetIndex + 2] = sourcePositions[sourceIndex + 2] || 0;
+        }
+      } else {
+        positions = new Float32Array(sourcePositions);
+      }
+
+      let normals = normalizeNormals(object.vertexnormals, sourceIndexes, positions.length);
+      if (!normals) {
+        normals = calculateFlatNormals(positions);
+      }
+
+      const positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+      const normalBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+
+      const geometry = {
+        positionBuffer,
+        normalBuffer,
+        vertexCount: Math.floor(positions.length / 3),
+        triangleCount: Math.floor(positions.length / 9),
+        bounds: calculateBounds(positions),
+        label
+      };
+
+      scene.geometries.add(geometry);
+      return geometry;
+    }
+
+    function normalizeNormals(sourceNormals, sourceIndexes, targetLength) {
+      if (!Array.isArray(sourceNormals) || sourceNormals.length < 3) {
+        return null;
+      }
+
+      if (sourceNormals.length === targetLength) {
+        return new Float32Array(sourceNormals);
+      }
+
+      if (sourceIndexes && sourceNormals.length >= maxIndexValue(sourceIndexes) * 3 + 3) {
+        const normals = new Float32Array(targetLength);
+        for (let i = 0; i < sourceIndexes.length; i += 1) {
+          const sourceIndex = sourceIndexes[i] * 3;
+          const targetIndex = i * 3;
+          normals[targetIndex] = sourceNormals[sourceIndex] || 0;
+          normals[targetIndex + 1] = sourceNormals[sourceIndex + 1] || 0;
+          normals[targetIndex + 2] = sourceNormals[sourceIndex + 2] || 0;
+        }
+        return normals;
+      }
+
+      return null;
+    }
+
+    function maxIndexValue(indexes) {
+      let max = 0;
+      for (let i = 0; i < indexes.length; i += 1) {
+        if (indexes[i] > max) {
+          max = indexes[i];
+        }
+      }
+      return max;
+    }
+
+    function calculateFlatNormals(positions) {
+      const normals = new Float32Array(positions.length);
+
+      for (let i = 0; i + 8 < positions.length; i += 9) {
+        const ax = positions[i];
+        const ay = positions[i + 1];
+        const az = positions[i + 2];
+        const bx = positions[i + 3];
+        const by = positions[i + 4];
+        const bz = positions[i + 5];
+        const cx = positions[i + 6];
+        const cy = positions[i + 7];
+        const cz = positions[i + 8];
+
+        const abx = bx - ax;
+        const aby = by - ay;
+        const abz = bz - az;
+        const acx = cx - ax;
+        const acy = cy - ay;
+        const acz = cz - az;
+        let nx = aby * acz - abz * acy;
+        let ny = abz * acx - abx * acz;
+        let nz = abx * acy - aby * acx;
+        const length = Math.hypot(nx, ny, nz) || 1;
+        nx /= length;
+        ny /= length;
+        nz /= length;
+
+        normals[i] = nx;
+        normals[i + 1] = ny;
+        normals[i + 2] = nz;
+        normals[i + 3] = nx;
+        normals[i + 4] = ny;
+        normals[i + 5] = nz;
+        normals[i + 6] = nx;
+        normals[i + 7] = ny;
+        normals[i + 8] = nz;
+      }
+
+      return normals;
+    }
+
+    function calculateBounds(positions) {
+      const bounds = createEmptyBounds();
+      for (let i = 0; i + 2 < positions.length; i += 3) {
+        includePoint(bounds, positions[i], positions[i + 1], positions[i + 2]);
+      }
+      return bounds;
+    }
+
+    function chooseObjectColor(object, inheritedColor) {
+      if (Array.isArray(object.colors) && object.colors.length >= 3) {
+        return normalizeColor(object.colors, inheritedColor);
+      }
+
+      if (typeof object.referenceobjectname === "string") {
+        const referenceColor = scene.namedColors.get(object.referenceobjectname);
+        if (referenceColor) {
+          return referenceColor.slice();
+        }
+      }
+
+      return normalizeColor(null, inheritedColor);
+    }
+
+    function normalizeColor(colors, fallback) {
+      const base = Array.isArray(fallback) ? fallback : DEFAULT_COLOR;
+      if (!Array.isArray(colors) || colors.length < 3) {
+        return base.slice();
+      }
+      return [
+        clampColor(colors[0]),
+        clampColor(colors[1]),
+        clampColor(colors[2]),
+        colors.length > 3 ? clampColor(colors[3]) : 1
+      ];
+    }
+
+    function clampColor(value) {
+      if (!Number.isFinite(value)) {
+        return 1;
+      }
+      return Math.max(0, Math.min(1, value));
+    }
+
+    function matrixFromObject(object) {
+      if (Array.isArray(object.transformation) && object.transformation.length >= 16) {
+        return new Float32Array(object.transformation.slice(0, 16));
+      }
+
+      const out = copyMatrix(IDENTITY);
+      if (object.transform && typeof object.transform === "object") {
+        const transform = object.transform;
+        translate(out, out, [
+          Number(transform.positionx) || 0,
+          Number(transform.positiony) || 0,
+          Number(transform.positionz) || 0
+        ]);
+        rotateX(out, out, ((Number(transform.anglex) || 0) * Math.PI) / 180);
+        rotateY(out, out, ((Number(transform.angley) || 0) * Math.PI) / 180);
+        rotateZ(out, out, ((Number(transform.anglez) || 0) * Math.PI) / 180);
+      }
+      return out;
+    }
+
+    function renderFrame() {
+      animationStarted = true;
+      if (!xrMode) {
+        resizeCanvas();
+        drawStandardFrame();
+        requestAnimationFrame(renderFrame);
+      } else {
+        animationStarted = false;
+      }
+    }
+
+    function drawStandardFrame() {
+      if (!gl) {
+        return;
+      }
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      makeStandardMatrices();
+
+      renderScene(scratch.projection, scratch.view, IDENTITY);
+    }
+
+    function makeStandardMatrices() {
+      const aspect = Math.max(canvas.width / Math.max(1, canvas.height), 0.001);
+      perspective(scratch.projection, Math.PI / 4, aspect, 0.01, 2000);
+
+      const distance = Math.max(1.8, scene.radius * view.zoom);
+      const cosPitch = Math.cos(view.pitch);
+      const eye = [
+        Math.sin(view.yaw) * cosPitch * distance + view.panX,
+        Math.sin(view.pitch) * distance + view.panY,
+        Math.cos(view.yaw) * cosPitch * distance
+      ];
+      const target = [view.panX, view.panY, 0];
+      lookAt(scratch.view, eye, target, [0, 1, 0]);
+    }
+
+    function renderScene(projectionMatrix, viewMatrix, placementMatrix, sizingMode = "fit") {
+      if (!scene.renderItems.length) {
+        return;
+      }
+
+      gl.useProgram(program);
+      gl.uniformMatrix4fv(uniforms.projection, false, projectionMatrix);
+      gl.uniformMatrix4fv(uniforms.view, false, viewMatrix);
+      gl.uniform3f(uniforms.lightDirection, -0.4, 0.8, 0.55);
+
+      for (const item of scene.renderItems) {
+        makeItemModelMatrix(scratch.model, placementMatrix, item, sizingMode);
+        gl.uniformMatrix4fv(uniforms.model, false, scratch.model);
+        gl.uniform4fv(uniforms.color, displayColorForItem(item));
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, item.geometry.positionBuffer);
+        gl.enableVertexAttribArray(attribs.position);
+        gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, item.geometry.normalBuffer);
+        gl.enableVertexAttribArray(attribs.normal);
+        gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.TRIANGLES, 0, item.geometry.vertexCount);
+      }
+    }
+
+    function makeItemModelMatrix(out, placementMatrix, item, sizingMode = "fit") {
+      const baseMatrix = sizingMode === "physical" ? item.physicalMatrix : item.normalizedMatrix;
+
+      if (sizingMode === "physical") {
+        multiply(out, placementMatrix, baseMatrix);
+        return out;
+      }
+
+      identity(scratch.dragModel);
+      translate(scratch.dragModel, scratch.dragModel, item.dragOffset);
+      multiply(scratch.temp, scratch.dragModel, baseMatrix);
+      multiply(out, placementMatrix, scratch.temp);
+      return out;
+    }
+
+    function displayColorForItem(item) {
+      if (item !== selectedItem) {
+        return item.color;
+      }
+
+      scratch.color[0] = Math.min(1, item.color[0] * 1.2 + 0.12);
+      scratch.color[1] = Math.min(1, item.color[1] * 1.2 + 0.12);
+      scratch.color[2] = Math.min(1, item.color[2] * 1.2 + 0.12);
+      scratch.color[3] = item.color[3];
+      return scratch.color;
+    }
+
+    function ensureReticleGeometry() {
+      if (reticleGeometry) {
+        return reticleGeometry;
+      }
+
+      const positions = [];
+      const normals = [];
+      const innerRadius = 0.12;
+      const outerRadius = 0.135;
+      const segments = 72;
+
+      for (let i = 0; i < segments; i += 1) {
+        const a0 = (i / segments) * Math.PI * 2;
+        const a1 = ((i + 1) / segments) * Math.PI * 2;
+        const ix0 = Math.cos(a0) * innerRadius;
+        const iz0 = Math.sin(a0) * innerRadius;
+        const ox0 = Math.cos(a0) * outerRadius;
+        const oz0 = Math.sin(a0) * outerRadius;
+        const ix1 = Math.cos(a1) * innerRadius;
+        const iz1 = Math.sin(a1) * innerRadius;
+        const ox1 = Math.cos(a1) * outerRadius;
+        const oz1 = Math.sin(a1) * outerRadius;
+
+        positions.push(ox0, 0, oz0, ix0, 0, iz0, ix1, 0, iz1);
+        positions.push(ox0, 0, oz0, ix1, 0, iz1, ox1, 0, oz1);
+      }
+
+      for (let i = 0; i < positions.length / 3; i += 1) {
+        normals.push(0, 1, 0);
+      }
+
+      const positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+      const normalBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+      reticleGeometry = {
+        positionBuffer,
+        normalBuffer,
+        vertexCount: positions.length / 3
+      };
+      return reticleGeometry;
+    }
+
+    function renderReticle(projectionMatrix, viewMatrix) {
+      const geometry = ensureReticleGeometry();
+
+      gl.useProgram(program);
+      gl.uniformMatrix4fv(uniforms.projection, false, projectionMatrix);
+      gl.uniformMatrix4fv(uniforms.view, false, viewMatrix);
+      gl.uniformMatrix4fv(uniforms.model, false, scratch.xrHit);
+      gl.uniform4f(uniforms.color, 0.2, 0.9, 0.72, 0.84);
+      gl.uniform3f(uniforms.lightDirection, -0.2, 0.9, 0.4);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, geometry.positionBuffer);
+      gl.enableVertexAttribArray(attribs.position);
+      gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, geometry.normalBuffer);
+      gl.enableVertexAttribArray(attribs.normal);
+      gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+      gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount);
+    }
+
+    function pickItemAt(clientX, clientY) {
+      if (!gl || !scene.renderItems.length || xrMode) {
+        return null;
+      }
+
+      resizeCanvas();
+      makeStandardMatrices();
+      ensurePickTarget();
+
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((clientX - rect.left) * canvas.width / Math.max(1, rect.width));
+      const y = Math.floor(canvas.height - ((clientY - rect.top) * canvas.height / Math.max(1, rect.height)) - 1);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, pickFramebuffer);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.disable(gl.BLEND);
+      gl.enable(gl.DEPTH_TEST);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      renderPickScene(scratch.projection, scratch.view, IDENTITY);
+      gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, scratch.pixel);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.enable(gl.BLEND);
+      gl.clearColor(0, 0, 0, 0);
+
+      const id = scratch.pixel[0] + scratch.pixel[1] * 256 + scratch.pixel[2] * 65536;
+      if (id <= 0) {
+        return null;
+      }
+
+      return scene.renderItems[id - 1] || null;
+    }
+
+    function renderPickScene(projectionMatrix, viewMatrix, placementMatrix) {
+      gl.useProgram(pickProgram);
+      gl.uniformMatrix4fv(pickUniforms.projection, false, projectionMatrix);
+      gl.uniformMatrix4fv(pickUniforms.view, false, viewMatrix);
+
+      for (let i = 0; i < scene.renderItems.length; i += 1) {
+        const item = scene.renderItems[i];
+        const id = i + 1;
+        scratch.color[0] = (id & 255) / 255;
+        scratch.color[1] = ((id >> 8) & 255) / 255;
+        scratch.color[2] = ((id >> 16) & 255) / 255;
+        scratch.color[3] = 1;
+
+        makeItemModelMatrix(scratch.model, placementMatrix, item);
+        gl.uniformMatrix4fv(pickUniforms.model, false, scratch.model);
+        gl.uniform4fv(pickUniforms.color, scratch.color);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, item.geometry.positionBuffer);
+        gl.enableVertexAttribArray(pickAttribs.position);
+        gl.vertexAttribPointer(pickAttribs.position, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, item.geometry.vertexCount);
+      }
+    }
+
+    function ensurePickTarget() {
+      if (pickFramebuffer && pickWidth === canvas.width && pickHeight === canvas.height) {
+        return;
+      }
+
+      if (!pickFramebuffer) {
+        pickFramebuffer = gl.createFramebuffer();
+        pickTexture = gl.createTexture();
+        pickDepthBuffer = gl.createRenderbuffer();
+      }
+
+      pickWidth = canvas.width;
+      pickHeight = canvas.height;
+
+      gl.bindTexture(gl.TEXTURE_2D, pickTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, pickWidth, pickHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+      gl.bindRenderbuffer(gl.RENDERBUFFER, pickDepthBuffer);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, pickWidth, pickHeight);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, pickFramebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pickTexture, 0);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, pickDepthBuffer);
+
+      const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        throw new Error("Could not create the MDJ picking buffer.");
+      }
+    }
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+      const height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+    }
+
+    function resetView(showStatus = true) {
+      view.yaw = -0.52;
+      view.pitch = -0.22;
+      view.zoom = 3.1;
+      view.panX = 0;
+      view.panY = 0;
+      for (const item of scene.renderItems) {
+        item.dragOffset[0] = 0;
+        item.dragOffset[1] = 0;
+        item.dragOffset[2] = 0;
+      }
+      selectedItem = null;
+      selectedIndex = -1;
+      updateStats();
+      if (showStatus) {
+        setStatus("View reset.", "");
+      }
+    }
+
+    function selectItem(item) {
+      selectedItem = item;
+      selectedIndex = item ? scene.renderItems.indexOf(item) : -1;
+      updateStats();
+
+      if (item) {
+        setStatus(`Selected ${displayName(item.name)}.`, "good");
+      } else {
+        setStatus("No part at that point.", "");
+      }
+    }
+
+    function moveSelectedByScreenDelta(dx, dy) {
+      if (!selectedItem) {
+        return;
+      }
+
+      const basis = cameraBasis();
+      const distance = Math.max(1.8, scene.radius * view.zoom);
+      const unitsPerPixel = (2 * distance * Math.tan(Math.PI / 8)) / Math.max(1, canvas.clientHeight);
+      const scalar = unitsPerPixel * 0.82;
+
+      selectedItem.dragOffset[0] += (basis.right[0] * dx - basis.up[0] * dy) * scalar;
+      selectedItem.dragOffset[1] += (basis.right[1] * dx - basis.up[1] * dy) * scalar;
+      selectedItem.dragOffset[2] += (basis.right[2] * dx - basis.up[2] * dy) * scalar;
+    }
+
+    function cameraBasis() {
+      const distance = Math.max(1.8, scene.radius * view.zoom);
+      const cosPitch = Math.cos(view.pitch);
+      const eye = [
+        Math.sin(view.yaw) * cosPitch * distance + view.panX,
+        Math.sin(view.pitch) * distance + view.panY,
+        Math.cos(view.yaw) * cosPitch * distance
+      ];
+      const target = [view.panX, view.panY, 0];
+
+      let zx = eye[0] - target[0];
+      let zy = eye[1] - target[1];
+      let zz = eye[2] - target[2];
+      let length = Math.hypot(zx, zy, zz) || 1;
+      zx /= length;
+      zy /= length;
+      zz /= length;
+
+      let rx = zz;
+      let ry = 0;
+      let rz = -zx;
+      length = Math.hypot(rx, ry, rz) || 1;
+      rx /= length;
+      ry /= length;
+      rz /= length;
+
+      return {
+        right: [rx, ry, rz],
+        up: [
+          zy * rz - zz * ry,
+          zz * rx - zx * rz,
+          zx * ry - zy * rx
+        ]
+      };
+    }
+
+    function addPointerEvents() {
+      canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+      canvas.addEventListener("pointerdown", (event) => {
+        canvas.setPointerCapture(event.pointerId);
+        view.activePointers.set(event.pointerId, {
+          x: event.clientX,
+          y: event.clientY,
+          shift: event.shiftKey,
+          button: event.button,
+          dragSelected: Boolean(event.shiftKey && selectedItem)
+        });
+
+        if (view.activePointers.size === 2) {
+          const points = Array.from(view.activePointers.values());
+          view.lastPinchDistance = pointerDistance(points[0], points[1]);
+          view.lastPinchCenter = pointerCenter(points[0], points[1]);
+        }
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        const pointer = view.activePointers.get(event.pointerId);
+        if (!pointer) {
+          return;
+        }
+
+        const previous = { x: pointer.x, y: pointer.y };
+        pointer.x = event.clientX;
+        pointer.y = event.clientY;
+
+        if (view.activePointers.size >= 2) {
+          const points = Array.from(view.activePointers.values()).slice(0, 2);
+          const distance = pointerDistance(points[0], points[1]);
+          const center = pointerCenter(points[0], points[1]);
+
+          if (view.lastPinchDistance > 0) {
+            view.zoom *= view.lastPinchDistance / Math.max(distance, 1);
+            view.zoom = Math.max(0.45, Math.min(14, view.zoom));
+          }
+
+          if (view.lastPinchCenter) {
+            panBy(center.x - view.lastPinchCenter.x, center.y - view.lastPinchCenter.y);
+          }
+
+          view.lastPinchDistance = distance;
+          view.lastPinchCenter = center;
+          return;
+        }
+
+        const dx = event.clientX - previous.x;
+        const dy = event.clientY - previous.y;
+        if (pointer.dragSelected && selectedItem) {
+          moveSelectedByScreenDelta(dx, dy);
+        } else if (event.shiftKey || pointer.shift || pointer.button === 2) {
+          panBy(dx, dy);
+        } else {
+          view.yaw += dx * 0.006;
+          view.pitch += dy * 0.005;
+          view.pitch = Math.max(-1.34, Math.min(1.34, view.pitch));
+        }
+      });
+
+      const endPointer = (event) => {
+        view.activePointers.delete(event.pointerId);
+        view.lastPinchDistance = 0;
+        view.lastPinchCenter = null;
+      };
+
+      canvas.addEventListener("pointerup", endPointer);
+      canvas.addEventListener("pointercancel", endPointer);
+
+      canvas.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        view.zoom *= Math.exp(event.deltaY * 0.001);
+        view.zoom = Math.max(0.45, Math.min(14, view.zoom));
+      }, { passive: false });
+
+      canvas.addEventListener("dblclick", (event) => {
+        try {
+          selectItem(pickItemAt(event.clientX, event.clientY));
+        } catch (error) {
+          setStatus(error.message || "Could not identify that part.", "bad");
+        }
+      });
+    }
+
+    function pointerDistance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function pointerCenter(a, b) {
+      return {
+        x: (a.x + b.x) * 0.5,
+        y: (a.y + b.y) * 0.5
+      };
+    }
+
+    function panBy(dx, dy) {
+      const scalar = scene.radius * view.zoom / Math.max(canvas.clientWidth, 1);
+      view.panX -= dx * scalar * 0.85;
+      view.panY += dy * scalar * 0.85;
+    }
+
+    function addFileEvents() {
+      openButton.addEventListener("click", () => filePicker.click());
+      filePicker.addEventListener("change", () => {
+        loadFile(filePicker.files && filePicker.files[0]);
+        filePicker.value = "";
+      });
+
+      let dragDepth = 0;
+      const dragOn = (event) => {
+        event.preventDefault();
+        dragDepth += 1;
+        dropPanel.classList.add("dragging");
+      };
+      const dragOff = (event) => {
+        event.preventDefault();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) {
+          dropPanel.classList.remove("dragging");
+        }
+      };
+
+      document.addEventListener("dragenter", dragOn);
+      document.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        dropPanel.classList.add("dragging");
+      });
+      document.addEventListener("dragleave", dragOff);
+      document.addEventListener("drop", (event) => {
+        event.preventDefault();
+        dragDepth = 0;
+        dropPanel.classList.remove("dragging");
+        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        loadFile(file);
+      });
+    }
+
+    function addButtonEvents() {
+      const goBackToGallery = (event) => {
+        if (!GALLERY_LAUNCH) {
+          return;
+        }
+
+        const previousUrl = document.referrer ? new URL(document.referrer, window.location.href) : null;
+        if (previousUrl && previousUrl.origin === window.location.origin && previousUrl.pathname.endsWith("/gallery.html")) {
+          event.preventDefault();
+          window.history.back();
+        }
+      };
+
+      galleryButton.addEventListener("click", goBackToGallery);
+      escapeButton.addEventListener("click", goBackToGallery);
+
+      cameraButton.addEventListener("click", async () => {
+        if (cameraStream) {
+          stopCamera();
+          setStatus("Camera stopped.", "");
+          return;
+        }
+
+        try {
+          await startCamera();
+        } catch (error) {
+          const message = error && error.name === "NotAllowedError"
+            ? "Camera permission denied. MDJ viewing still works."
+            : (error.message || cameraUnavailableMessage());
+          setStatus(message, "bad");
+        }
+      });
+
+      resetButton.addEventListener("click", () => resetView(true));
+      xrButton.addEventListener("click", async (event) => {
+        if (openInSafariCapable) {
+          if (isXRButtonDisabled()) {
+            event.preventDefault();
+            setStatus(xrButton.title || "Open this viewer from the gallery to use Safari AR.", "bad");
+          }
+          return;
+        }
+
+        if (appleUSDZCapable) {
+          if (quickLookObjectUrl && quickLookObjectUrlFile === currentModelFileName) {
+            return;
+          }
+
+          event.preventDefault();
+          if (isXRButtonDisabled() && !usdzScene) {
+            setStatus(xrButton.title || "Load an MDJ model before opening AR.", "bad");
+            return;
+          }
+
+          const ready = await prepareUSDZ();
+          if (ready) {
+            setStatus("USDZ is ready. Tap View in AR again.", "good");
+          }
+          return;
+        }
+
+        event.preventDefault();
+        if (isXRButtonDisabled()) {
+          setStatus(xrButton.title || "WebXR AR is unavailable here.", "bad");
+          return;
+        }
+        toggleXR();
+      });
+    }
+
+    function addKeyboardEvents() {
+      document.addEventListener("keydown", (event) => {
+        const tagName = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : "";
+        if (tagName === "input" || tagName === "textarea" || tagName === "select" || tagName === "button") {
+          return;
+        }
+
+        const panStep = scene.radius * 0.08 * view.zoom;
+        const key = event.key.toLowerCase();
+        let handled = true;
+
+        if (key === "w") {
+          view.zoom = Math.max(0.45, view.zoom * 0.9);
+        } else if (key === "s") {
+          view.zoom = Math.min(14, view.zoom * 1.1);
+        } else if (key === "a") {
+          view.panX -= panStep;
+        } else if (key === "d") {
+          view.panX += panStep;
+        } else if (key === "q") {
+          view.yaw -= 0.16;
+        } else if (key === "e") {
+          view.yaw += 0.16;
+        } else if (event.key === "ArrowLeft") {
+          view.yaw -= 0.1;
+        } else if (event.key === "ArrowRight") {
+          view.yaw += 0.1;
+        } else if (event.key === "ArrowUp") {
+          view.pitch = Math.max(-1.34, view.pitch - 0.08);
+        } else if (event.key === "ArrowDown") {
+          view.pitch = Math.min(1.34, view.pitch + 0.08);
+        } else if (event.code === "Space") {
+          resetView(true);
+        } else if (event.key === "Escape") {
+          selectItem(null);
+        } else {
+          handled = false;
+        }
+
+        if (handled) {
+          event.preventDefault();
+        }
+      });
+    }
+
+    function loadDemoScene() {
+      const cube = {
+        name: "Demo cube",
+        colors: [0.19, 0.77, 0.68, 0.96],
+        vertexpositions: [
+          -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5,
+          -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5,
+          0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5,
+          0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5,
+          -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5,
+          -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
+          0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5,
+          0.5, -0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5,
+          -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5,
+          -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5,
+          -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5,
+          -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5
+        ]
+      };
+
+      clearScene();
+      scene.name = "Demo";
+      scene.namedGeometries = new Map();
+      scene.namedColors = new Map();
+      scene.pendingReferences = [];
+      scene.meshCount = 0;
+      scene.referenceCount = 0;
+      scene.triangleCount = 0;
+      buildNode(cube, IDENTITY, DEFAULT_COLOR);
+      finalizeSceneBounds();
+      updateStats();
+    }
+
+    function nextFrame() {
+      return new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+
+    function isIOSDevice() {
+      const userAgent = navigator.userAgent || "";
+      const platform = navigator.platform || "";
+      return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function isSafariBrowser() {
+      const userAgent = navigator.userAgent || "";
+      return /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|YaBrowser/i.test(userAgent);
+    }
+
+    function isAppleQuickLookCapable() {
+      const anchor = document.createElement("a");
+      return Boolean(
+        anchor.relList &&
+        typeof anchor.relList.supports === "function" &&
+        anchor.relList.supports("ar")
+      );
+    }
+
+    function createEmptyBounds() {
+      return {
+        min: [Infinity, Infinity, Infinity],
+        max: [-Infinity, -Infinity, -Infinity]
+      };
+    }
+
+    function boundsReady(bounds) {
+      return Number.isFinite(bounds.min[0]) && Number.isFinite(bounds.max[0]);
+    }
+
+    function includePoint(bounds, x, y, z) {
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+        return;
+      }
+      bounds.min[0] = Math.min(bounds.min[0], x);
+      bounds.min[1] = Math.min(bounds.min[1], y);
+      bounds.min[2] = Math.min(bounds.min[2], z);
+      bounds.max[0] = Math.max(bounds.max[0], x);
+      bounds.max[1] = Math.max(bounds.max[1], y);
+      bounds.max[2] = Math.max(bounds.max[2], z);
+    }
+
+    function includeTransformedBounds(targetBounds, sourceBounds, matrix) {
+      const min = sourceBounds.min;
+      const max = sourceBounds.max;
+      const corners = [
+        [min[0], min[1], min[2]], [max[0], min[1], min[2]],
+        [min[0], max[1], min[2]], [max[0], max[1], min[2]],
+        [min[0], min[1], max[2]], [max[0], min[1], max[2]],
+        [min[0], max[1], max[2]], [max[0], max[1], max[2]]
+      ];
+
+      for (const corner of corners) {
+        const x = corner[0];
+        const y = corner[1];
+        const z = corner[2];
+        includePoint(
+          targetBounds,
+          matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12],
+          matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13],
+          matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14]
+        );
+      }
+    }
+
+    function mat4() {
+      return copyMatrix(IDENTITY);
+    }
+
+    function copyMatrix(matrix) {
+      return new Float32Array(matrix);
+    }
+
+    function copyInto(out, matrix) {
+      for (let i = 0; i < 16; i += 1) {
+        out[i] = matrix[i];
+      }
+      return out;
+    }
+
+    function identity(out) {
+      out[0] = 1; out[1] = 0; out[2] = 0; out[3] = 0;
+      out[4] = 0; out[5] = 1; out[6] = 0; out[7] = 0;
+      out[8] = 0; out[9] = 0; out[10] = 1; out[11] = 0;
+      out[12] = 0; out[13] = 0; out[14] = 0; out[15] = 1;
+      return out;
+    }
+
+    function multiply(out, a, b) {
+      const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+      const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+      const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+      const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+      let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+      out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+      out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+      out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+      out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+      b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
+      out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+      out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+      out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+      out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+      b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
+      out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+      out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+      out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+      out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+      b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
+      out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+      out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+      out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+      out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+      return out;
+    }
+
+    function perspective(out, fovy, aspect, near, far) {
+      const f = 1.0 / Math.tan(fovy / 2);
+      out[0] = f / aspect;
+      out[1] = 0;
+      out[2] = 0;
+      out[3] = 0;
+      out[4] = 0;
+      out[5] = f;
+      out[6] = 0;
+      out[7] = 0;
+      out[8] = 0;
+      out[9] = 0;
+      out[11] = -1;
+      out[12] = 0;
+      out[13] = 0;
+      out[15] = 0;
+
+      const nf = 1 / (near - far);
+      out[10] = (far + near) * nf;
+      out[14] = 2 * far * near * nf;
+      return out;
+    }
+
+    function lookAt(out, eye, center, up) {
+      let zx = eye[0] - center[0];
+      let zy = eye[1] - center[1];
+      let zz = eye[2] - center[2];
+      let len = Math.hypot(zx, zy, zz);
+      if (len === 0) {
+        zz = 1;
+      } else {
+        zx /= len;
+        zy /= len;
+        zz /= len;
+      }
+
+      let xx = up[1] * zz - up[2] * zy;
+      let xy = up[2] * zx - up[0] * zz;
+      let xz = up[0] * zy - up[1] * zx;
+      len = Math.hypot(xx, xy, xz);
+      if (len === 0) {
+        xx = 1;
+      } else {
+        xx /= len;
+        xy /= len;
+        xz /= len;
+      }
+
+      const yx = zy * xz - zz * xy;
+      const yy = zz * xx - zx * xz;
+      const yz = zx * xy - zy * xx;
+
+      out[0] = xx;
+      out[1] = yx;
+      out[2] = zx;
+      out[3] = 0;
+      out[4] = xy;
+      out[5] = yy;
+      out[6] = zy;
+      out[7] = 0;
+      out[8] = xz;
+      out[9] = yz;
+      out[10] = zz;
+      out[11] = 0;
+      out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+      out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+      out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+      out[15] = 1;
+      return out;
+    }
+
+    function translate(out, a, vector) {
+      const x = vector[0], y = vector[1], z = vector[2];
+
+      if (out !== a) {
+        out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
+        out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+        out[8] = a[8]; out[9] = a[9]; out[10] = a[10]; out[11] = a[11];
+      }
+
+      out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
+      out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
+      out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
+      out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
+      return out;
+    }
+
+    function rotateX(out, a, radians) {
+      const s = Math.sin(radians);
+      const c = Math.cos(radians);
+      const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+      const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+
+      if (out !== a) {
+        out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
+        out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+      }
+
+      out[4] = a10 * c + a20 * s;
+      out[5] = a11 * c + a21 * s;
+      out[6] = a12 * c + a22 * s;
+      out[7] = a13 * c + a23 * s;
+      out[8] = a20 * c - a10 * s;
+      out[9] = a21 * c - a11 * s;
+      out[10] = a22 * c - a12 * s;
+      out[11] = a23 * c - a13 * s;
+      return out;
+    }
+
+    function rotateY(out, a, radians) {
+      const s = Math.sin(radians);
+      const c = Math.cos(radians);
+      const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+      const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+
+      if (out !== a) {
+        out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+        out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+      }
+
+      out[0] = a00 * c - a20 * s;
+      out[1] = a01 * c - a21 * s;
+      out[2] = a02 * c - a22 * s;
+      out[3] = a03 * c - a23 * s;
+      out[8] = a00 * s + a20 * c;
+      out[9] = a01 * s + a21 * c;
+      out[10] = a02 * s + a22 * c;
+      out[11] = a03 * s + a23 * c;
+      return out;
+    }
+
+    function rotateZ(out, a, radians) {
+      const s = Math.sin(radians);
+      const c = Math.cos(radians);
+      const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+      const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+
+      if (out !== a) {
+        out[8] = a[8]; out[9] = a[9]; out[10] = a[10]; out[11] = a[11];
+        out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+      }
+
+      out[0] = a00 * c + a10 * s;
+      out[1] = a01 * c + a11 * s;
+      out[2] = a02 * c + a12 * s;
+      out[3] = a03 * c + a13 * s;
+      out[4] = a10 * c - a00 * s;
+      out[5] = a11 * c - a01 * s;
+      out[6] = a12 * c - a02 * s;
+      out[7] = a13 * c - a03 * s;
+      return out;
+    }
+
+    function makeCenterScaleMatrix(center, scale) {
+      return new Float32Array([
+        scale, 0, 0, 0,
+        0, scale, 0, 0,
+        0, 0, scale, 0,
+        -center[0] * scale, -center[1] * scale, -center[2] * scale, 1
+      ]);
+    }
+
+    function makePhysicalScaleMatrix(bounds, scale) {
+      const centerX = (bounds.min[0] + bounds.max[0]) * 0.5;
+      const centerZ = (bounds.min[2] + bounds.max[2]) * 0.5;
+      return new Float32Array([
+        scale, 0, 0, 0,
+        0, scale, 0, 0,
+        0, 0, scale, 0,
+        -centerX * scale, -bounds.min[1] * scale, -centerZ * scale, 1
+      ]);
+    }
+
+    async function boot() {
+      try {
+        quickLookImage.src = tinyGif;
+        applyViewerMode();
+        if (!initGL()) {
+          return;
+        }
+        if (!GALLERY_LAUNCH) {
+          loadDemoScene();
+          updateStats();
+        }
+        resizeCanvas();
+        addPointerEvents();
+        if (!GALLERY_LAUNCH) {
+          addFileEvents();
+        }
+        addButtonEvents();
+        addKeyboardEvents();
+        updateXRSupport();
+        requestAnimationFrame(renderFrame);
+
+        if (GALLERY_LAUNCH) {
+          await loadFromQuery();
+        } else {
+          try {
+            await startCamera();
+          } catch (error) {
+            const message = error && error.name === "NotAllowedError"
+              ? "Camera permission denied. MDJ viewing still works."
+              : (error.message || cameraUnavailableMessage());
+            setStatus(message, "bad");
+          }
+        }
+      } catch (error) {
+        setStatus(error.message || "Viewer failed to start.", "bad");
+      }
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("beforeunload", revokeQuickLookObjectUrl);
+    boot();
+  })();
+  </script>
+</body>
+</html>
