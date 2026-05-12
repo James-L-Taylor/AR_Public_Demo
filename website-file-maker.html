@@ -1,0 +1,2606 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MDJ Website File Maker</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08100f;
+      --surface: #111918;
+      --surface-2: #182321;
+      --surface-3: #202b27;
+      --ink: #eff7f2;
+      --muted: #a8b8b0;
+      --line: rgba(255, 255, 255, 0.14);
+      --accent: #36d399;
+      --accent-2: #7db7ff;
+      --warn: #f5b94e;
+      --bad: #ff806e;
+      --good: #7ee0a2;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background:
+        linear-gradient(140deg, rgba(54, 211, 153, 0.11), transparent 36%),
+        linear-gradient(26deg, rgba(245, 185, 78, 0.10), transparent 32%),
+        var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    body {
+      min-width: 320px;
+    }
+
+    button,
+    input,
+    select,
+    a.button {
+      font: inherit;
+    }
+
+    .shell {
+      display: block;
+      width: min(560px, calc(100vw - 32px));
+      min-height: calc(100vh - 32px);
+      margin: 16px auto;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(17, 25, 24, 0.88);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header,
+    .section {
+      padding: 18px;
+    }
+
+    .panel-header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.15;
+      font-weight: 760;
+    }
+
+    .status {
+      margin-top: 8px;
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .status[data-tone="bad"] {
+      color: var(--bad);
+    }
+
+    .status[data-tone="good"] {
+      color: var(--good);
+    }
+
+    .drop-zone {
+      display: grid;
+      place-items: center;
+      min-height: 178px;
+      padding: 22px;
+      border: 1px dashed rgba(255, 255, 255, 0.28);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .drop-zone.dragging {
+      border-color: rgba(54, 211, 153, 0.85);
+      background: rgba(54, 211, 153, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .drop-zone strong {
+      display: block;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+
+    .drop-zone span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    #filePicker {
+      display: none;
+    }
+
+    .section {
+      border-top: 1px solid var(--line);
+    }
+
+    .section:first-of-type {
+      border-top: 0;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    label,
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      text-transform: uppercase;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 40px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--ink);
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: rgba(125, 183, 255, 0.78);
+      box-shadow: 0 0 0 2px rgba(125, 183, 255, 0.18);
+    }
+
+    .actions {
+      display: flex;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink);
+      cursor: pointer;
+      line-height: 1;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .button.primary {
+      width: 100%;
+      border-color: rgba(54, 211, 153, 0.58);
+      background: rgba(54, 211, 153, 0.18);
+    }
+
+    .button:hover {
+      border-color: rgba(255, 255, 255, 0.34);
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    .button:focus-visible {
+      outline: 2px solid var(--accent-2);
+      outline-offset: 2px;
+    }
+
+    .button[disabled],
+    .button.disabled {
+      color: rgba(239, 247, 242, 0.42);
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .generated-dialog {
+      width: min(430px, calc(100vw - 32px));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+
+    .generated-dialog::backdrop {
+      background: rgba(0, 0, 0, 0.54);
+    }
+
+    .generated-dialog h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .generated-files {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 18px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .generated-files li {
+      overflow-wrap: anywhere;
+      padding: 10px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .generated-dialog .button {
+      width: 100%;
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        width: min(100vw - 24px, 560px);
+        margin: 12px auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="panel" aria-label="MDJ website maker">
+      <div class="panel-header">
+        <h1>MDJ Website File Maker</h1>
+        <div id="status" class="status">Open an MDJ file.</div>
+      </div>
+
+      <div class="section">
+        <input id="filePicker" type="file" accept=".mdj,.json,application/json" aria-hidden="true" tabindex="-1">
+        <div id="dropZone" class="drop-zone" role="button" tabindex="0">
+          <div>
+            <strong>Open or drop an MDJ file</strong>
+            <span id="dropDetail">No model loaded</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="actions">
+          <button id="generateButton" class="button primary" type="button" disabled>Generate Files</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="generatedDialog" class="generated-dialog" aria-labelledby="generatedTitle">
+    <h2 id="generatedTitle">Files Generated</h2>
+    <ul id="generatedFiles" class="generated-files"></ul>
+    <button id="closeDialog" class="button primary" type="button">Done</button>
+  </dialog>
+
+  <script id="mdjCoreSource">
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) {
+    module.exports = factory();
+  } else {
+    root.MDJUSDZ = factory();
+  }
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+
+  const DEFAULT_COLOR = [0.72, 0.76, 0.73, 1];
+  const IDENTITY = new Float64Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  const UNIT_SCALES = {
+    in: 0.0254,
+    ft: 0.3048,
+    mm: 0.001,
+    cm: 0.01,
+    m: 1
+  };
+
+  let crcTable = null;
+
+  function parseMDJText(text, options) {
+    const parsed = JSON.parse(text);
+    const roots = extractMDJRoots(parsed);
+    return buildMDJScene(roots, options || {});
+  }
+
+  function extractMDJRoots(parsed) {
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+
+    if (parsed && Array.isArray(parsed.objects)) {
+      return parsed.objects;
+    }
+
+    if (parsed && parsed.model && Array.isArray(parsed.model.objects)) {
+      return parsed.model.objects;
+    }
+
+    throw new Error("MDJ root must be an array or an object with an objects array.");
+  }
+
+  function buildMDJScene(roots, options) {
+    const scene = {
+      name: options.fileName || "MDJ Model",
+      geometries: [],
+      namedGeometries: new Map(),
+      namedColors: new Map(),
+      pendingReferences: [],
+      renderItems: [],
+      meshCount: 0,
+      referenceCount: 0,
+      unresolvedReferenceCount: 0,
+      triangleCount: 0,
+      vertexCount: 0,
+      bounds: createEmptyBounds(),
+      radius: 1,
+      maxSpan: 1,
+      span: [1, 1, 1],
+      centerScaleMatrix: copyMatrix(IDENTITY)
+    };
+
+    const rootList = Array.isArray(roots) ? roots : [roots];
+    for (const object of rootList) {
+      buildNode(scene, object, IDENTITY, DEFAULT_COLOR);
+    }
+
+    resolvePendingReferences(scene);
+    finalizeScene(scene);
+    return scene;
+  }
+
+  function buildNode(scene, object, parentWorldMatrix, inheritedColor) {
+    if (!object || typeof object !== "object") {
+      return null;
+    }
+
+    const localMatrix = matrixFromObject(object);
+    const worldMatrix = mat4();
+    multiply(worldMatrix, parentWorldMatrix, localMatrix);
+
+    const objectName = typeof object.name === "string" ? object.name : "";
+    const ownColor = chooseObjectColor(scene, object, inheritedColor);
+    if (objectName) {
+      scene.namedColors.set(objectName, ownColor);
+    }
+
+    let geometry = null;
+    let isReference = false;
+
+    if (Array.isArray(object.vertexpositions)) {
+      geometry = createGeometryData(object, objectName || "mesh");
+      scene.geometries.push(geometry);
+      if (objectName) {
+        scene.namedGeometries.set(objectName, geometry);
+      }
+    } else if (typeof object.referenceobjectname === "string") {
+      geometry = scene.namedGeometries.get(object.referenceobjectname) || null;
+      isReference = true;
+      scene.referenceCount += 1;
+    }
+
+    if (geometry) {
+      addRenderItem(scene, geometry, worldMatrix, ownColor, objectName, isReference);
+      if (objectName && isReference) {
+        scene.namedGeometries.set(objectName, geometry);
+      }
+    } else if (isReference) {
+      scene.pendingReferences.push({
+        refName: object.referenceobjectname,
+        objectName,
+        worldMatrix: copyMatrix(worldMatrix),
+        color: ownColor
+      });
+    }
+
+    if (Array.isArray(object.objects)) {
+      for (const child of object.objects) {
+        buildNode(scene, child, worldMatrix, ownColor);
+      }
+    }
+
+    return worldMatrix;
+  }
+
+  function resolvePendingReferences(scene) {
+    if (!scene.pendingReferences.length) {
+      return;
+    }
+
+    let unresolved = 0;
+    for (const pending of scene.pendingReferences) {
+      const geometry = scene.namedGeometries.get(pending.refName);
+      if (geometry) {
+        const refColor = scene.namedColors.get(pending.refName);
+        const color = pending.color || refColor || DEFAULT_COLOR;
+        addRenderItem(scene, geometry, pending.worldMatrix, color, pending.objectName, true);
+        if (pending.objectName) {
+          scene.namedGeometries.set(pending.objectName, geometry);
+        }
+      } else {
+        unresolved += 1;
+      }
+    }
+
+    scene.unresolvedReferenceCount = unresolved;
+    scene.pendingReferences = [];
+  }
+
+  function addRenderItem(scene, geometry, worldMatrix, color, name, isReference) {
+    const item = {
+      geometry,
+      worldMatrix: copyMatrix(worldMatrix),
+      normalizedMatrix: mat4(),
+      color: color || DEFAULT_COLOR,
+      name: name || geometry.label,
+      isReference: Boolean(isReference)
+    };
+
+    scene.renderItems.push(item);
+    scene.triangleCount += geometry.triangleCount;
+    scene.vertexCount += geometry.vertexCount;
+    if (!isReference) {
+      scene.meshCount += 1;
+    }
+  }
+
+  function createGeometryData(object, label) {
+    const sourcePositions = object.vertexpositions;
+    const sourceIndexes = Array.isArray(object.vertexindexes) ? object.vertexindexes : null;
+
+    if (!Array.isArray(sourcePositions) || sourcePositions.length < 9) {
+      throw new Error(`${label} has no usable vertexpositions.`);
+    }
+
+    let positions;
+    if (sourceIndexes && sourceIndexes.length >= 3) {
+      positions = new Float32Array(sourceIndexes.length * 3);
+      for (let i = 0; i < sourceIndexes.length; i += 1) {
+        const sourceIndex = Math.max(0, Number(sourceIndexes[i]) || 0) * 3;
+        const targetIndex = i * 3;
+        positions[targetIndex] = finiteNumber(sourcePositions[sourceIndex]);
+        positions[targetIndex + 1] = finiteNumber(sourcePositions[sourceIndex + 1]);
+        positions[targetIndex + 2] = finiteNumber(sourcePositions[sourceIndex + 2]);
+      }
+    } else {
+      positions = new Float32Array(sourcePositions.length);
+      for (let i = 0; i < sourcePositions.length; i += 1) {
+        positions[i] = finiteNumber(sourcePositions[i]);
+      }
+    }
+
+    const triangleCount = Math.floor(positions.length / 9);
+    const usableLength = triangleCount * 9;
+    if (usableLength !== positions.length) {
+      positions = positions.slice(0, usableLength);
+    }
+
+    if (triangleCount < 1) {
+      throw new Error(`${label} has no complete triangles.`);
+    }
+
+    let normals = normalizeNormals(object.vertexnormals, sourceIndexes, positions.length);
+    if (!normals) {
+      normals = calculateFlatNormals(positions);
+    } else if (normals.length !== positions.length) {
+      normals = normals.slice(0, positions.length);
+    }
+
+    return {
+      label,
+      positions,
+      normals,
+      vertexCount: Math.floor(positions.length / 3),
+      triangleCount,
+      bounds: calculateBounds(positions),
+      preview: null
+    };
+  }
+
+  function normalizeNormals(sourceNormals, sourceIndexes, targetLength) {
+    if (!Array.isArray(sourceNormals) || sourceNormals.length < 3) {
+      return null;
+    }
+
+    if (sourceNormals.length >= targetLength) {
+      const normals = new Float32Array(targetLength);
+      for (let i = 0; i < targetLength; i += 1) {
+        normals[i] = finiteNumber(sourceNormals[i]);
+      }
+      normalizeNormalTriplets(normals);
+      return normals;
+    }
+
+    if (sourceIndexes && sourceNormals.length >= maxIndexValue(sourceIndexes) * 3 + 3) {
+      const normals = new Float32Array(targetLength);
+      for (let i = 0; i * 3 + 2 < targetLength && i < sourceIndexes.length; i += 1) {
+        const sourceIndex = Math.max(0, Number(sourceIndexes[i]) || 0) * 3;
+        const targetIndex = i * 3;
+        normals[targetIndex] = finiteNumber(sourceNormals[sourceIndex]);
+        normals[targetIndex + 1] = finiteNumber(sourceNormals[sourceIndex + 1]);
+        normals[targetIndex + 2] = finiteNumber(sourceNormals[sourceIndex + 2]);
+      }
+      normalizeNormalTriplets(normals);
+      return normals;
+    }
+
+    return null;
+  }
+
+  function normalizeNormalTriplets(normals) {
+    for (let i = 0; i + 2 < normals.length; i += 3) {
+      let x = normals[i];
+      let y = normals[i + 1];
+      let z = normals[i + 2];
+      const length = Math.hypot(x, y, z) || 1;
+      normals[i] = x / length;
+      normals[i + 1] = y / length;
+      normals[i + 2] = z / length;
+    }
+  }
+
+  function maxIndexValue(indexes) {
+    let max = 0;
+    for (let i = 0; i < indexes.length; i += 1) {
+      const value = Number(indexes[i]) || 0;
+      if (value > max) {
+        max = value;
+      }
+    }
+    return max;
+  }
+
+  function calculateFlatNormals(positions) {
+    const normals = new Float32Array(positions.length);
+
+    for (let i = 0; i + 8 < positions.length; i += 9) {
+      const ax = positions[i];
+      const ay = positions[i + 1];
+      const az = positions[i + 2];
+      const bx = positions[i + 3];
+      const by = positions[i + 4];
+      const bz = positions[i + 5];
+      const cx = positions[i + 6];
+      const cy = positions[i + 7];
+      const cz = positions[i + 8];
+
+      const abx = bx - ax;
+      const aby = by - ay;
+      const abz = bz - az;
+      const acx = cx - ax;
+      const acy = cy - ay;
+      const acz = cz - az;
+      let nx = aby * acz - abz * acy;
+      let ny = abz * acx - abx * acz;
+      let nz = abx * acy - aby * acx;
+      const length = Math.hypot(nx, ny, nz) || 1;
+      nx /= length;
+      ny /= length;
+      nz /= length;
+
+      normals[i] = nx;
+      normals[i + 1] = ny;
+      normals[i + 2] = nz;
+      normals[i + 3] = nx;
+      normals[i + 4] = ny;
+      normals[i + 5] = nz;
+      normals[i + 6] = nx;
+      normals[i + 7] = ny;
+      normals[i + 8] = nz;
+    }
+
+    return normals;
+  }
+
+  function finalizeScene(scene) {
+    scene.bounds = createEmptyBounds();
+
+    for (const item of scene.renderItems) {
+      includeTransformedBounds(scene.bounds, item.geometry.bounds, item.worldMatrix);
+    }
+
+    if (!boundsReady(scene.bounds)) {
+      scene.bounds = {
+        min: [-0.6, -0.6, -0.6],
+        max: [0.6, 0.6, 0.6]
+      };
+    }
+
+    const center = [
+      (scene.bounds.min[0] + scene.bounds.max[0]) * 0.5,
+      (scene.bounds.min[1] + scene.bounds.max[1]) * 0.5,
+      (scene.bounds.min[2] + scene.bounds.max[2]) * 0.5
+    ];
+    const span = [
+      scene.bounds.max[0] - scene.bounds.min[0],
+      scene.bounds.max[1] - scene.bounds.min[1],
+      scene.bounds.max[2] - scene.bounds.min[2]
+    ];
+    const maxSpan = Math.max(span[0], span[1], span[2], 0.0001);
+    const fitScale = 1.35 / maxSpan;
+
+    scene.span = span;
+    scene.maxSpan = maxSpan;
+    scene.radius = Math.max(0.7, Math.hypot(span[0], span[1], span[2]) * fitScale * 0.5);
+    scene.centerScaleMatrix = makeCenterScaleMatrix(center, fitScale);
+
+    for (const item of scene.renderItems) {
+      multiply(item.normalizedMatrix, scene.centerScaleMatrix, item.worldMatrix);
+    }
+  }
+
+  function chooseObjectColor(scene, object, inheritedColor) {
+    if (Array.isArray(object.colors) && object.colors.length >= 3) {
+      return normalizeColor(object.colors, inheritedColor);
+    }
+
+    if (typeof object.referenceobjectname === "string") {
+      const referenceColor = scene.namedColors.get(object.referenceobjectname);
+      if (referenceColor) {
+        return referenceColor.slice();
+      }
+    }
+
+    return normalizeColor(null, inheritedColor);
+  }
+
+  function normalizeColor(colors, fallback) {
+    const base = Array.isArray(fallback) ? fallback : DEFAULT_COLOR;
+    if (!Array.isArray(colors) || colors.length < 3) {
+      return base.slice();
+    }
+
+    return [
+      clampColor(colors[0]),
+      clampColor(colors[1]),
+      clampColor(colors[2]),
+      colors.length > 3 ? clampColor(colors[3]) : 1
+    ];
+  }
+
+  function clampColor(value) {
+    if (!Number.isFinite(Number(value))) {
+      return 1;
+    }
+    return Math.max(0, Math.min(1, Number(value)));
+  }
+
+  function exportUSDZ(scene, options) {
+    if (!scene || !Array.isArray(scene.renderItems) || !scene.renderItems.length) {
+      throw new Error("Load an MDJ model before exporting USDZ.");
+    }
+
+    const settings = Object.assign({
+      fileName: scene.name || "model",
+      units: "in",
+      precision: 6,
+      roughness: 0.68,
+      metallic: 0.04
+    }, options || {});
+
+    const baseName = sanitizeFileBase(settings.fileName || scene.name || "model");
+    const usdaName = `${baseName}.usda`;
+    const usdzName = `${baseName}.usdz`;
+    const usda = createUSDA(scene, settings);
+    const usdaBytes = utf8Encode(usda);
+    const bytes = createUSDZPackage(usdaName, usdaBytes);
+
+    return {
+      bytes,
+      usda,
+      usdaName,
+      fileName: usdzName,
+      mimeType: "model/vnd.usdz+zip"
+    };
+  }
+
+  function createUSDA(scene, settings) {
+    const unitScale = unitScaleFromSettings(settings);
+    const precision = Math.max(3, Math.min(8, Number(settings.precision) || 6));
+    const exportMatrix = makePhysicalScaleMatrix(scene.bounds, unitScale);
+    const materials = [];
+    const materialKeys = new Map();
+    const parts = [];
+
+    parts.push("#usda 1.0\n");
+    parts.push("(\n");
+    parts.push("    defaultPrim = \"Model\"\n");
+    parts.push("    metersPerUnit = 1\n");
+    parts.push("    upAxis = \"Y\"\n");
+    parts.push(")\n\n");
+    parts.push("def Xform \"Model\" (\n");
+    parts.push("    kind = \"component\"\n");
+    parts.push(")\n");
+    parts.push("{\n");
+    parts.push(`    custom int sourceMeshes = ${scene.meshCount}\n`);
+    parts.push(`    custom int sourceRenderMeshes = ${scene.renderItems.length}\n`);
+    parts.push(`    custom string sourceModel = ${quoteUSDString(scene.name || "MDJ Model")}\n`);
+    parts.push(`    custom string sourceUnits = ${quoteUSDString(settings.units || "in")}\n`);
+    parts.push(`    custom double sourceSpanX = ${formatNumber(scene.span[0], precision)}\n`);
+    parts.push(`    custom double sourceSpanY = ${formatNumber(scene.span[1], precision)}\n`);
+    parts.push(`    custom double sourceSpanZ = ${formatNumber(scene.span[2], precision)}\n`);
+    parts.push(`    custom int sourceTriangles = ${scene.triangleCount}\n`);
+    parts.push(`    custom int unresolvedReferences = ${scene.unresolvedReferenceCount || 0}\n\n`);
+    parts.push("    def Scope \"Geometry\"\n");
+    parts.push("    {\n");
+
+    for (let i = 0; i < scene.renderItems.length; i += 1) {
+      const item = scene.renderItems[i];
+      const materialName = materialForColor(item.color, materials, materialKeys);
+      const meshName = makeMeshPrimName(i + 1, item.name || item.geometry.label);
+      const modelMatrix = mat4();
+      multiply(modelMatrix, exportMatrix, item.worldMatrix);
+
+      parts.push(`        def Mesh "${meshName}" (\n`);
+      parts.push("            prepend apiSchemas = [\"MaterialBindingAPI\"]\n");
+      parts.push("        )\n");
+      parts.push("        {\n");
+      parts.push("            uniform bool doubleSided = 1\n");
+      appendRepeatedIntArray(parts, "int[] faceVertexCounts", 3, item.geometry.triangleCount, "            ");
+      appendIntSequence(parts, "int[] faceVertexIndices", item.geometry.vertexCount, "            ");
+      parts.push(`            rel material:binding = </Model/Materials/${materialName}>\n`);
+      appendTransformedPointArray(parts, item.geometry.positions, modelMatrix, precision, "            ");
+      parts.push("            uniform token subdivisionScheme = \"none\"\n");
+      parts.push("        }\n\n");
+    }
+
+    parts.push("    }\n\n");
+    parts.push("    def Scope \"Materials\"\n");
+    parts.push("    {\n");
+
+    for (const material of materials) {
+      parts.push(`        def Material "${material.name}"\n`);
+      parts.push("        {\n");
+      parts.push(`            token outputs:surface.connect = </Model/Materials/${material.name}/PreviewSurface.outputs:surface>\n\n`);
+      parts.push("            def Shader \"PreviewSurface\"\n");
+      parts.push("            {\n");
+      parts.push("                uniform token info:id = \"UsdPreviewSurface\"\n");
+      parts.push(`                color3f inputs:diffuseColor = (${formatNumber(material.color[0], 3)}, ${formatNumber(material.color[1], 3)}, ${formatNumber(material.color[2], 3)})\n`);
+      parts.push(`                float inputs:metallic = ${formatNumber(settings.metallic, 3)}\n`);
+      parts.push(`                float inputs:opacity = ${formatNumber(material.color[3], 3)}\n`);
+      parts.push(`                float inputs:roughness = ${formatNumber(settings.roughness, 3)}\n`);
+      parts.push("                token outputs:surface\n");
+      parts.push("            }\n");
+      parts.push("        }\n\n");
+    }
+
+    parts.push("    }\n");
+    parts.push("}\n");
+
+    return parts.join("");
+  }
+
+  function materialForColor(color, materials, materialKeys) {
+    const normalized = normalizeColor(color, DEFAULT_COLOR);
+    const key = normalized.map((value) => Math.round(value * 1000)).join("_");
+    if (materialKeys.has(key)) {
+      return materialKeys.get(key);
+    }
+
+    const name = `Material_${String(materials.length + 1).padStart(3, "0")}`;
+    materials.push({ name, color: normalized });
+    materialKeys.set(key, name);
+    return name;
+  }
+
+  function appendTransformedPointArray(parts, values, matrix, precision, indent) {
+    parts.push(`${indent}point3f[] points = [`);
+    const chunk = [];
+    const flush = () => {
+      if (chunk.length) {
+        parts.push(chunk.join(", "));
+        chunk.length = 0;
+      }
+    };
+
+    for (let i = 0; i + 2 < values.length; i += 3) {
+      const x = matrix[0] * values[i] + matrix[4] * values[i + 1] + matrix[8] * values[i + 2] + matrix[12];
+      const y = matrix[1] * values[i] + matrix[5] * values[i + 1] + matrix[9] * values[i + 2] + matrix[13];
+      const z = matrix[2] * values[i] + matrix[6] * values[i + 1] + matrix[10] * values[i + 2] + matrix[14];
+      chunk.push(`(${formatNumber(x, precision)}, ${formatNumber(y, precision)}, ${formatNumber(z, precision)})`);
+      if (chunk.length >= 180 && i + 3 < values.length) {
+        flush();
+        parts.push(",\n");
+        parts.push(`${indent}    `);
+      }
+    }
+
+    flush();
+    parts.push("]\n");
+  }
+
+  function appendRepeatedIntArray(parts, label, value, count, indent) {
+    parts.push(`${indent}${label} = [`);
+    const chunk = [];
+    for (let i = 0; i < count; i += 1) {
+      chunk.push(String(value));
+      if (chunk.length >= 320) {
+        parts.push(chunk.join(", "));
+        chunk.length = 0;
+        if (i + 1 < count) {
+          parts.push(",\n");
+          parts.push(`${indent}    `);
+        }
+      }
+    }
+    if (chunk.length) {
+      parts.push(chunk.join(", "));
+    }
+    parts.push("]\n");
+  }
+
+  function appendIntSequence(parts, label, count, indent) {
+    parts.push(`${indent}${label} = [`);
+    const chunk = [];
+    for (let i = 0; i < count; i += 1) {
+      chunk.push(String(i));
+      if (chunk.length >= 320) {
+        parts.push(chunk.join(", "));
+        chunk.length = 0;
+        if (i + 1 < count) {
+          parts.push(",\n");
+          parts.push(`${indent}    `);
+        }
+      }
+    }
+    if (chunk.length) {
+      parts.push(chunk.join(", "));
+    }
+    parts.push("]\n");
+  }
+
+  function createUSDZPackage(fileName, fileBytes) {
+    const nameBytes = asciiEncode(fileName);
+    const extra = createAlignmentExtra(30 + nameBytes.length);
+    const crc = crc32(fileBytes);
+    const now = new Date();
+    const dos = dosDateTime(now);
+    const localHeaderLength = 30 + nameBytes.length + extra.length;
+    const centralDirectoryOffset = localHeaderLength + fileBytes.length;
+    const centralDirectoryLength = 46 + nameBytes.length + extra.length;
+    const totalLength = centralDirectoryOffset + centralDirectoryLength + 22;
+    const out = new Uint8Array(totalLength);
+    const view = new DataView(out.buffer);
+    let offset = 0;
+
+    view.setUint32(offset, 0x04034b50, true); offset += 4;
+    view.setUint16(offset, 10, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, dos.time, true); offset += 2;
+    view.setUint16(offset, dos.date, true); offset += 2;
+    view.setUint32(offset, crc, true); offset += 4;
+    view.setUint32(offset, fileBytes.length, true); offset += 4;
+    view.setUint32(offset, fileBytes.length, true); offset += 4;
+    view.setUint16(offset, nameBytes.length, true); offset += 2;
+    view.setUint16(offset, extra.length, true); offset += 2;
+    out.set(nameBytes, offset); offset += nameBytes.length;
+    out.set(extra, offset); offset += extra.length;
+    out.set(fileBytes, offset); offset += fileBytes.length;
+
+    view.setUint32(offset, 0x02014b50, true); offset += 4;
+    view.setUint16(offset, 10, true); offset += 2;
+    view.setUint16(offset, 10, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, dos.time, true); offset += 2;
+    view.setUint16(offset, dos.date, true); offset += 2;
+    view.setUint32(offset, crc, true); offset += 4;
+    view.setUint32(offset, fileBytes.length, true); offset += 4;
+    view.setUint32(offset, fileBytes.length, true); offset += 4;
+    view.setUint16(offset, nameBytes.length, true); offset += 2;
+    view.setUint16(offset, extra.length, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint32(offset, 0, true); offset += 4;
+    view.setUint32(offset, 0, true); offset += 4;
+    out.set(nameBytes, offset); offset += nameBytes.length;
+    out.set(extra, offset); offset += extra.length;
+
+    view.setUint32(offset, 0x06054b50, true); offset += 4;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, 0, true); offset += 2;
+    view.setUint16(offset, 1, true); offset += 2;
+    view.setUint16(offset, 1, true); offset += 2;
+    view.setUint32(offset, centralDirectoryLength, true); offset += 4;
+    view.setUint32(offset, centralDirectoryOffset, true); offset += 4;
+    view.setUint16(offset, 0, true);
+
+    return out;
+  }
+
+  function createAlignmentExtra(baseOffset) {
+    const padding = (64 - ((baseOffset + 4) % 64)) % 64;
+    const extra = new Uint8Array(4 + padding);
+    const view = new DataView(extra.buffer);
+    view.setUint16(0, 0x1986, true);
+    view.setUint16(2, padding, true);
+    return extra;
+  }
+
+  function crc32(bytes) {
+    if (!crcTable) {
+      crcTable = new Uint32Array(256);
+      for (let i = 0; i < 256; i += 1) {
+        let c = i;
+        for (let k = 0; k < 8; k += 1) {
+          c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        crcTable[i] = c >>> 0;
+      }
+    }
+
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i += 1) {
+      crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function dosDateTime(date) {
+    const year = Math.max(1980, date.getFullYear());
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = Math.floor(date.getSeconds() / 2);
+    return {
+      time: (hours << 11) | (minutes << 5) | seconds,
+      date: ((year - 1980) << 9) | (month << 5) | day
+    };
+  }
+
+  function createEmptyBounds() {
+    return {
+      min: [Infinity, Infinity, Infinity],
+      max: [-Infinity, -Infinity, -Infinity]
+    };
+  }
+
+  function boundsReady(bounds) {
+    return Number.isFinite(bounds.min[0]) && Number.isFinite(bounds.max[0]);
+  }
+
+  function includePoint(bounds, x, y, z) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+      return;
+    }
+    bounds.min[0] = Math.min(bounds.min[0], x);
+    bounds.min[1] = Math.min(bounds.min[1], y);
+    bounds.min[2] = Math.min(bounds.min[2], z);
+    bounds.max[0] = Math.max(bounds.max[0], x);
+    bounds.max[1] = Math.max(bounds.max[1], y);
+    bounds.max[2] = Math.max(bounds.max[2], z);
+  }
+
+  function includeTransformedBounds(targetBounds, sourceBounds, matrix) {
+    const min = sourceBounds.min;
+    const max = sourceBounds.max;
+    const corners = [
+      [min[0], min[1], min[2]], [max[0], min[1], min[2]],
+      [min[0], max[1], min[2]], [max[0], max[1], min[2]],
+      [min[0], min[1], max[2]], [max[0], min[1], max[2]],
+      [min[0], max[1], max[2]], [max[0], max[1], max[2]]
+    ];
+
+    for (const corner of corners) {
+      includePoint(
+        targetBounds,
+        matrix[0] * corner[0] + matrix[4] * corner[1] + matrix[8] * corner[2] + matrix[12],
+        matrix[1] * corner[0] + matrix[5] * corner[1] + matrix[9] * corner[2] + matrix[13],
+        matrix[2] * corner[0] + matrix[6] * corner[1] + matrix[10] * corner[2] + matrix[14]
+      );
+    }
+  }
+
+  function calculateBounds(positions) {
+    const bounds = createEmptyBounds();
+    for (let i = 0; i + 2 < positions.length; i += 3) {
+      includePoint(bounds, positions[i], positions[i + 1], positions[i + 2]);
+    }
+    return bounds;
+  }
+
+  function matrixFromObject(object) {
+    if (Array.isArray(object.transformation) && object.transformation.length >= 16) {
+      const out = new Float64Array(16);
+      for (let i = 0; i < 16; i += 1) {
+        out[i] = finiteNumber(object.transformation[i], i % 5 === 0 ? 1 : 0);
+      }
+      return out;
+    }
+
+    const out = copyMatrix(IDENTITY);
+    if (object.transform && typeof object.transform === "object") {
+      const transform = object.transform;
+      translate(out, out, [
+        Number(transform.positionx) || 0,
+        Number(transform.positiony) || 0,
+        Number(transform.positionz) || 0
+      ]);
+      rotateX(out, out, ((Number(transform.anglex) || 0) * Math.PI) / 180);
+      rotateY(out, out, ((Number(transform.angley) || 0) * Math.PI) / 180);
+      rotateZ(out, out, ((Number(transform.anglez) || 0) * Math.PI) / 180);
+    }
+    return out;
+  }
+
+  function makeCenterScaleMatrix(center, scale) {
+    return new Float64Array([
+      scale, 0, 0, 0,
+      0, scale, 0, 0,
+      0, 0, scale, 0,
+      -center[0] * scale, -center[1] * scale, -center[2] * scale, 1
+    ]);
+  }
+
+  function makePhysicalScaleMatrix(bounds, scale) {
+    const centerX = (bounds.min[0] + bounds.max[0]) * 0.5;
+    const centerZ = (bounds.min[2] + bounds.max[2]) * 0.5;
+    return new Float64Array([
+      scale, 0, 0, 0,
+      0, scale, 0, 0,
+      0, 0, scale, 0,
+      -centerX * scale, -bounds.min[1] * scale, -centerZ * scale, 1
+    ]);
+  }
+
+  function mat4() {
+    return copyMatrix(IDENTITY);
+  }
+
+  function copyMatrix(matrix) {
+    return new Float64Array(matrix);
+  }
+
+  function identity(out) {
+    out[0] = 1; out[1] = 0; out[2] = 0; out[3] = 0;
+    out[4] = 0; out[5] = 1; out[6] = 0; out[7] = 0;
+    out[8] = 0; out[9] = 0; out[10] = 1; out[11] = 0;
+    out[12] = 0; out[13] = 0; out[14] = 0; out[15] = 1;
+    return out;
+  }
+
+  function multiply(out, a, b) {
+    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+    const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+    let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+    out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+    b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
+    out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+    b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
+    out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+    b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
+    out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    return out;
+  }
+
+  function perspective(out, fovy, aspect, near, far) {
+    const f = 1.0 / Math.tan(fovy / 2);
+    out[0] = f / aspect;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = f;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[11] = -1;
+    out[12] = 0;
+    out[13] = 0;
+    out[15] = 0;
+
+    const nf = 1 / (near - far);
+    out[10] = (far + near) * nf;
+    out[14] = 2 * far * near * nf;
+    return out;
+  }
+
+  function lookAt(out, eye, center, up) {
+    let zx = eye[0] - center[0];
+    let zy = eye[1] - center[1];
+    let zz = eye[2] - center[2];
+    let len = Math.hypot(zx, zy, zz);
+    if (len === 0) {
+      zz = 1;
+    } else {
+      zx /= len;
+      zy /= len;
+      zz /= len;
+    }
+
+    let xx = up[1] * zz - up[2] * zy;
+    let xy = up[2] * zx - up[0] * zz;
+    let xz = up[0] * zy - up[1] * zx;
+    len = Math.hypot(xx, xy, xz);
+    if (len === 0) {
+      xx = 1;
+    } else {
+      xx /= len;
+      xy /= len;
+      xz /= len;
+    }
+
+    const yx = zy * xz - zz * xy;
+    const yy = zz * xx - zx * xz;
+    const yz = zx * xy - zy * xx;
+
+    out[0] = xx;
+    out[1] = yx;
+    out[2] = zx;
+    out[3] = 0;
+    out[4] = xy;
+    out[5] = yy;
+    out[6] = zy;
+    out[7] = 0;
+    out[8] = xz;
+    out[9] = yz;
+    out[10] = zz;
+    out[11] = 0;
+    out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+    out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+    out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+    out[15] = 1;
+    return out;
+  }
+
+  function translate(out, a, vector) {
+    const x = vector[0], y = vector[1], z = vector[2];
+
+    if (out !== a) {
+      out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
+      out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+      out[8] = a[8]; out[9] = a[9]; out[10] = a[10]; out[11] = a[11];
+    }
+
+    out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
+    out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
+    out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
+    out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
+    return out;
+  }
+
+  function rotateX(out, a, radians) {
+    const s = Math.sin(radians);
+    const c = Math.cos(radians);
+    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+
+    if (out !== a) {
+      out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
+      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    }
+
+    out[4] = a10 * c + a20 * s;
+    out[5] = a11 * c + a21 * s;
+    out[6] = a12 * c + a22 * s;
+    out[7] = a13 * c + a23 * s;
+    out[8] = a20 * c - a10 * s;
+    out[9] = a21 * c - a11 * s;
+    out[10] = a22 * c - a12 * s;
+    out[11] = a23 * c - a13 * s;
+    return out;
+  }
+
+  function rotateY(out, a, radians) {
+    const s = Math.sin(radians);
+    const c = Math.cos(radians);
+    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+
+    if (out !== a) {
+      out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    }
+
+    out[0] = a00 * c - a20 * s;
+    out[1] = a01 * c - a21 * s;
+    out[2] = a02 * c - a22 * s;
+    out[3] = a03 * c - a23 * s;
+    out[8] = a00 * s + a20 * c;
+    out[9] = a01 * s + a21 * c;
+    out[10] = a02 * s + a22 * c;
+    out[11] = a03 * s + a23 * c;
+    return out;
+  }
+
+  function rotateZ(out, a, radians) {
+    const s = Math.sin(radians);
+    const c = Math.cos(radians);
+    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+
+    if (out !== a) {
+      out[8] = a[8]; out[9] = a[9]; out[10] = a[10]; out[11] = a[11];
+      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    }
+
+    out[0] = a00 * c + a10 * s;
+    out[1] = a01 * c + a11 * s;
+    out[2] = a02 * c + a12 * s;
+    out[3] = a03 * c + a13 * s;
+    out[4] = a10 * c - a00 * s;
+    out[5] = a11 * c - a01 * s;
+    out[6] = a12 * c - a02 * s;
+    out[7] = a13 * c - a03 * s;
+    return out;
+  }
+
+  function unitScaleFromSettings(settings) {
+    if (Number.isFinite(Number(settings.unitScale)) && Number(settings.unitScale) > 0) {
+      return Number(settings.unitScale);
+    }
+    return UNIT_SCALES[settings.units] || UNIT_SCALES.in;
+  }
+
+  function finiteNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : (fallback || 0);
+  }
+
+  function formatNumber(value, precision) {
+    const number = Math.abs(value) < 1e-12 ? 0 : finiteNumber(value);
+    let text = number.toFixed(precision);
+    text = text.replace(/\.?0+$/, "");
+    if (text === "-0") {
+      return "0";
+    }
+    return text || "0";
+  }
+
+  function quoteUSDString(value) {
+    return JSON.stringify(String(value == null ? "" : value));
+  }
+
+  function makeMeshPrimName(index, name) {
+    const safe = sanitizePrimName(name || "Part").slice(0, 88) || "Part";
+    return `Mesh_${String(index).padStart(3, "0")}_${safe}`;
+  }
+
+  function sanitizePrimName(value) {
+    let text = String(value || "").replace(/[^A-Za-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+    if (!text || !/^[A-Za-z_]/.test(text)) {
+      text = `Part_${text}`;
+    }
+    return text;
+  }
+
+  function sanitizeFileBase(value) {
+    let text = String(value || "model").replace(/\.[A-Za-z0-9]+$/, "");
+    text = text.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+    return text || "model";
+  }
+
+  function utf8Encode(text) {
+    if (typeof TextEncoder !== "undefined") {
+      return new TextEncoder().encode(text);
+    }
+    const encoded = unescape(encodeURIComponent(text));
+    const bytes = new Uint8Array(encoded.length);
+    for (let i = 0; i < encoded.length; i += 1) {
+      bytes[i] = encoded.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  function asciiEncode(text) {
+    const bytes = new Uint8Array(text.length);
+    for (let i = 0; i < text.length; i += 1) {
+      const code = text.charCodeAt(i);
+      bytes[i] = code > 127 ? 95 : code;
+    }
+    return bytes;
+  }
+
+  return {
+    DEFAULT_COLOR,
+    UNIT_SCALES,
+    parseMDJText,
+    extractMDJRoots,
+    buildMDJScene,
+    exportUSDZ,
+    createUSDA,
+    createUSDZPackage,
+    math: {
+      mat4,
+      copyMatrix,
+      identity,
+      multiply,
+      perspective,
+      lookAt
+    },
+    formatNumber,
+    sanitizeFileBase
+  };
+});
+
+  </script>
+
+  <script>
+  (() => {
+    "use strict";
+
+    const coreSource = document.getElementById("mdjCoreSource").textContent.trim();
+    const filePicker = document.getElementById("filePicker");
+    const dropZone = document.getElementById("dropZone");
+    const dropDetail = document.getElementById("dropDetail");
+    const statusEl = document.getElementById("status");
+    const generateButton = document.getElementById("generateButton");
+    const generatedDialog = document.getElementById("generatedDialog");
+    const generatedFiles = document.getElementById("generatedFiles");
+    const closeDialog = document.getElementById("closeDialog");
+
+    const state = {
+      fileName: "",
+      fileBase: "",
+      mdjText: "",
+      model: null,
+      htmlUrl: "",
+      usdzUrl: ""
+    };
+
+    addFileEvents();
+    addOutputEvents();
+
+    function addFileEvents() {
+      dropZone.addEventListener("click", () => {
+        filePicker.value = "";
+        filePicker.click();
+      });
+
+      dropZone.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          filePicker.value = "";
+          filePicker.click();
+        }
+      });
+
+      filePicker.addEventListener("change", () => {
+        const file = filePicker.files && filePicker.files[0];
+        if (file) {
+          loadFile(file);
+        }
+      });
+
+      let dragDepth = 0;
+      dropZone.addEventListener("dragenter", (event) => {
+        event.preventDefault();
+        dragDepth += 1;
+        dropZone.classList.add("dragging");
+      });
+      dropZone.addEventListener("dragover", (event) => event.preventDefault());
+      dropZone.addEventListener("dragleave", (event) => {
+        event.preventDefault();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (!dragDepth) {
+          dropZone.classList.remove("dragging");
+        }
+      });
+      dropZone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        dragDepth = 0;
+        dropZone.classList.remove("dragging");
+        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        if (file) {
+          loadFile(file);
+        }
+      });
+
+      window.addEventListener("dragover", (event) => event.preventDefault());
+      window.addEventListener("drop", (event) => event.preventDefault());
+    }
+
+    function addOutputEvents() {
+      generateButton.addEventListener("click", generateOutputs);
+      closeDialog.addEventListener("click", () => generatedDialog.close());
+    }
+
+    async function loadFile(file) {
+      const lowerName = file.name.toLowerCase();
+      if (!lowerName.endsWith(".mdj") && !lowerName.endsWith(".json")) {
+        setStatus("Choose an MDJ file.", "bad");
+        return;
+      }
+
+      setBusy(true);
+      clearOutputs();
+      dropDetail.textContent = file.name;
+      setStatus(`Reading ${file.name}...`);
+
+      try {
+        const text = await file.text();
+        await nextFrame();
+        const model = MDJUSDZ.parseMDJText(text, { fileName: file.name });
+
+        state.fileName = file.name;
+        state.fileBase = fileBaseFromName(file.name);
+        state.mdjText = text;
+        state.model = model;
+
+        generateButton.disabled = false;
+        setStatus(`Loaded ${file.name}.`, "good");
+      } catch (error) {
+        state.fileName = "";
+        state.fileBase = "";
+        state.mdjText = "";
+        state.model = null;
+        generateButton.disabled = true;
+        setStatus(error.message || "Could not load MDJ.", "bad");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function generateOutputs() {
+      if (!state.model || !state.mdjText) {
+        return;
+      }
+
+      setBusy(true);
+      clearOutputs();
+      setStatus("Building USDZ and website...");
+
+      try {
+        await nextFrame();
+        const baseName = state.fileBase || "model";
+        const usdzFileName = `${baseName}.usdz`;
+        const htmlFileName = `${baseName}.html`;
+        const usdz = MDJUSDZ.exportUSDZ(state.model, {
+          fileName: baseName,
+          units: "in",
+          precision: 6
+        });
+        const html = makeViewerHTML({
+          mdjText: state.mdjText,
+          sourceFileName: state.fileName,
+          title: baseName,
+          usdzFileName
+        });
+
+        state.usdzUrl = URL.createObjectURL(new Blob([usdz.bytes], { type: usdz.mimeType }));
+        state.htmlUrl = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+
+        triggerDownload(state.usdzUrl, usdzFileName);
+        triggerDownload(state.htmlUrl, htmlFileName);
+        showGeneratedDialog([htmlFileName, usdzFileName]);
+        setStatus(`Created ${htmlFileName} and ${usdzFileName}.`, "good");
+      } catch (error) {
+        clearOutputs();
+        setStatus(error.message || "Could not generate files.", "bad");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function makeViewerHTML(options) {
+      const title = options.title || "MDJ Model";
+      const sourceFileName = options.sourceFileName || `${title}.mdj`;
+      const usdzHref = `${encodeURIComponent(options.usdzFileName)}#allowsContentScaling=0`;
+      const configJSON = escapeScriptData(JSON.stringify({ sourceFileName, usdzFileName: options.usdzFileName }));
+      const runtime = `(${embeddedViewerRuntime.toString()})();`;
+
+      return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>${escapeHTML(title)}</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #eef7f4;
+      --muted: #9fb3ae;
+      --panel: rgba(10, 16, 18, 0.76);
+      --line: rgba(255, 255, 255, 0.16);
+      --accent: #36d399;
+      --accent-2: #7db7ff;
+      --danger: #ff806e;
+      --shadow: 0 18px 70px rgba(0, 0, 0, 0.38);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        linear-gradient(145deg, rgba(54, 211, 153, 0.09), transparent 38%),
+        linear-gradient(24deg, rgba(125, 183, 255, 0.12), transparent 44%),
+        #071013;
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+    button, a.button { font: inherit; }
+    #stage, #glCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #glCanvas {
+      display: block;
+      touch-action: none;
+    }
+    .topbar {
+      position: fixed;
+      z-index: 5;
+      top: max(14px, env(safe-area-inset-top));
+      left: max(14px, env(safe-area-inset-left));
+      right: max(14px, env(safe-area-inset-right));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .brand, .controls, .stats {
+      pointer-events: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px) saturate(140%);
+    }
+    .brand {
+      min-width: min(360px, 100%);
+      padding: 12px 14px;
+    }
+    .brand h1 {
+      overflow: hidden;
+      margin: 0;
+      font-size: 16px;
+      font-weight: 740;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status {
+      margin-top: 6px;
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .status[data-tone="bad"] { color: var(--danger); }
+    .status[data-tone="good"] { color: var(--accent); }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 8px;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      max-width: 180px;
+      padding: 0 13px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink);
+      cursor: pointer;
+      line-height: 1;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .button:hover {
+      border-color: rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .button:focus-visible {
+      outline: 2px solid var(--accent-2);
+      outline-offset: 2px;
+    }
+    .button.primary {
+      border-color: rgba(54, 211, 153, 0.54);
+      background: rgba(54, 211, 153, 0.18);
+    }
+    .button[disabled] {
+      color: rgba(238, 247, 244, 0.44);
+      border-color: rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.04);
+      cursor: default;
+    }
+    .ar-control {
+      display: none;
+    }
+    .quick-look-thumb {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    @media (max-width: 760px) {
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .brand, .controls {
+        width: 100%;
+      }
+      .controls {
+        justify-content: stretch;
+      }
+      .button {
+        flex: 1 1 110px;
+        max-width: none;
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="stage" aria-label="MDJ model viewer">
+    <canvas id="glCanvas"></canvas>
+  </main>
+
+  <section class="topbar" aria-label="Viewer controls">
+    <div class="brand">
+      <h1>${escapeHTML(title)}</h1>
+      <div id="status" class="status">Loading model...</div>
+    </div>
+    <div class="controls">
+      <a id="iosARLink" class="button primary ar-control" rel="ar" href="${escapeAttribute(usdzHref)}" title="Open in Apple AR Quick Look" aria-label="Open in Apple AR Quick Look">
+        <img class="quick-look-thumb" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt="" aria-hidden="true">
+        <span>View in AR</span>
+      </a>
+      <button id="webXRButton" class="button primary ar-control" type="button" disabled>View in AR</button>
+      <button id="resetButton" class="button" type="button">Reset</button>
+    </div>
+  </section>
+
+  <script id="mdjCoreSource">
+${coreSource}
+  <\/script>
+  <script>
+    window.MDJ_VIEWER_CONFIG = ${configJSON};
+  <\/script>
+  <script id="embeddedMDJ" type="application/json">
+${escapeScriptData(options.mdjText)}
+  <\/script>
+  <script>
+${runtime}
+  <\/script>
+</body>
+</html>
+`;
+    }
+
+    function embeddedViewerRuntime() {
+      "use strict";
+
+      const canvas = document.getElementById("glCanvas");
+      const statusEl = document.getElementById("status");
+      const iosARLink = document.getElementById("iosARLink");
+      const webXRButton = document.getElementById("webXRButton");
+      const resetButton = document.getElementById("resetButton");
+      const embeddedMDJEl = document.getElementById("embeddedMDJ");
+      const config = window.MDJ_VIEWER_CONFIG || {};
+
+      const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+      const INCHES_TO_METERS = 0.0254;
+
+      let gl = null;
+      let program = null;
+      let attribs = null;
+      let uniforms = null;
+      let xrSession = null;
+      let xrReferenceSpace = null;
+      let xrViewerSpace = null;
+      let xrHitTestSource = null;
+      let xrMode = false;
+      let xrModelPlaced = false;
+      let xrReticleVisible = false;
+      let xrHitSeen = false;
+      let xrNoHitTimer = null;
+      let reticleGeometry = null;
+      let animationStarted = false;
+
+      const view = {
+        yaw: -0.52,
+        pitch: -0.22,
+        zoom: 3.1,
+        panX: 0,
+        panY: 0,
+        activePointers: new Map(),
+        lastPinchDistance: 0,
+        lastPinchCenter: null
+      };
+
+      const scene = {
+        model: null,
+        geometries: [],
+        renderItems: [],
+        radius: 1,
+        maxSpan: 1
+      };
+
+      const scratch = {
+        projection: mat4(),
+        view: mat4(),
+        model: mat4(),
+        xrHit: mat4(),
+        xrPlaced: mat4(),
+        temp: mat4(),
+        color: new Float32Array(4)
+      };
+
+      boot();
+
+      async function boot() {
+        try {
+          if (!initGL()) {
+            return;
+          }
+          addPointerEvents();
+          addButtonEvents();
+          configureARControls();
+          loadEmbeddedMDJ();
+          resizeCanvas();
+          requestAnimationFrame(renderFrame);
+          await updateXRSupport();
+        } catch (error) {
+          setStatus(error.message || "Could not start viewer.", "bad");
+        }
+      }
+
+      function initGL() {
+        gl = canvas.getContext("webgl", {
+          alpha: true,
+          antialias: true,
+          depth: true,
+          preserveDrawingBuffer: false,
+          xrCompatible: true
+        });
+
+        if (!gl) {
+          setStatus("WebGL is unavailable in this browser.", "bad");
+          return false;
+        }
+
+        const vertexShaderSource = [
+          "attribute vec3 aPosition;",
+          "attribute vec3 aNormal;",
+          "uniform mat4 uProjection;",
+          "uniform mat4 uView;",
+          "uniform mat4 uModel;",
+          "varying vec3 vNormal;",
+          "void main() {",
+          "  vec4 worldPosition = uModel * vec4(aPosition, 1.0);",
+          "  vNormal = normalize(mat3(uModel) * aNormal);",
+          "  gl_Position = uProjection * uView * worldPosition;",
+          "}"
+        ].join("\n");
+
+        const fragmentShaderSource = [
+          "precision mediump float;",
+          "uniform vec4 uColor;",
+          "uniform vec3 uLightDirection;",
+          "varying vec3 vNormal;",
+          "void main() {",
+          "  vec3 n = normalize(vNormal);",
+          "  float key = max(dot(n, normalize(uLightDirection)), 0.0);",
+          "  float rim = pow(1.0 - max(abs(n.z), 0.0), 2.0) * 0.16;",
+          "  vec3 color = uColor.rgb * (0.42 + key * 0.62) + rim;",
+          "  gl_FragColor = vec4(color, uColor.a);",
+          "}"
+        ].join("\n");
+
+        program = createProgram(vertexShaderSource, fragmentShaderSource);
+        attribs = {
+          position: gl.getAttribLocation(program, "aPosition"),
+          normal: gl.getAttribLocation(program, "aNormal")
+        };
+        uniforms = {
+          projection: gl.getUniformLocation(program, "uProjection"),
+          view: gl.getUniformLocation(program, "uView"),
+          model: gl.getUniformLocation(program, "uModel"),
+          color: gl.getUniformLocation(program, "uColor"),
+          lightDirection: gl.getUniformLocation(program, "uLightDirection")
+        };
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.disable(gl.CULL_FACE);
+        gl.clearColor(0, 0, 0, 0);
+        return true;
+      }
+
+      function createShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const message = gl.getShaderInfoLog(shader) || "Unknown shader error";
+          gl.deleteShader(shader);
+          throw new Error(message);
+        }
+        return shader;
+      }
+
+      function createProgram(vertexSource, fragmentSource) {
+        const vertex = createShader(gl.VERTEX_SHADER, vertexSource);
+        const fragment = createShader(gl.FRAGMENT_SHADER, fragmentSource);
+        const linkedProgram = gl.createProgram();
+        gl.attachShader(linkedProgram, vertex);
+        gl.attachShader(linkedProgram, fragment);
+        gl.linkProgram(linkedProgram);
+        gl.deleteShader(vertex);
+        gl.deleteShader(fragment);
+
+        if (!gl.getProgramParameter(linkedProgram, gl.LINK_STATUS)) {
+          const message = gl.getProgramInfoLog(linkedProgram) || "Unknown program link error";
+          gl.deleteProgram(linkedProgram);
+          throw new Error(message);
+        }
+        return linkedProgram;
+      }
+
+      function loadEmbeddedMDJ() {
+        if (!embeddedMDJEl) {
+          setStatus("Model data is missing from this file.", "bad");
+          return;
+        }
+
+        try {
+          const text = embeddedMDJEl.textContent || "";
+          const model = MDJUSDZ.parseMDJText(text, {
+            fileName: config.sourceFileName || "model.mdj"
+          });
+          setModel(model);
+          setStatus("Model loaded.", "good");
+        } catch (error) {
+          setStatus(error.message || "Could not load model.", "bad");
+        }
+      }
+
+      function setModel(model) {
+        clearScene();
+        scene.model = model;
+        scene.radius = model.radius || 1;
+        scene.maxSpan = model.maxSpan || 1;
+
+        const geometryCache = new Map();
+        const physicalScaleMatrix = makePhysicalScaleMatrix(model.bounds, INCHES_TO_METERS);
+
+        for (const item of model.renderItems) {
+          let geometry = geometryCache.get(item.geometry);
+          if (!geometry) {
+            geometry = createGeometry(item.geometry.positions, item.geometry.normals);
+            geometryCache.set(item.geometry, geometry);
+            scene.geometries.push(geometry);
+          }
+
+          const physicalMatrix = mat4();
+          multiply(physicalMatrix, physicalScaleMatrix, item.worldMatrix);
+          scene.renderItems.push({
+            geometry,
+            normalizedMatrix: new Float32Array(item.normalizedMatrix),
+            physicalMatrix,
+            color: new Float32Array(item.color || [0.72, 0.76, 0.73, 1])
+          });
+        }
+
+        resetView(false);
+      }
+
+      function clearScene() {
+        for (const geometry of scene.geometries) {
+          gl.deleteBuffer(geometry.positionBuffer);
+          gl.deleteBuffer(geometry.normalBuffer);
+        }
+        scene.model = null;
+        scene.geometries = [];
+        scene.renderItems = [];
+      }
+
+      function createGeometry(positions, normals) {
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+        const normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+        return {
+          positionBuffer,
+          normalBuffer,
+          vertexCount: Math.floor(positions.length / 3)
+        };
+      }
+
+      function configureARControls() {
+        const mobile = isMobileDevice();
+        const ios = isIOSDevice();
+        iosARLink.style.display = mobile && ios ? "inline-flex" : "none";
+        webXRButton.style.display = mobile && !ios ? "inline-flex" : "none";
+
+        if (ios) {
+          iosARLink.addEventListener("click", () => {
+            setStatus("Opening Apple AR Quick Look...", "good");
+          });
+        }
+      }
+
+      async function updateXRSupport() {
+        if (webXRButton.style.display === "none") {
+          return;
+        }
+        if (!navigator.xr || !navigator.xr.isSessionSupported) {
+          webXRButton.disabled = true;
+          webXRButton.title = "WebXR AR is unavailable in this browser.";
+          return;
+        }
+
+        try {
+          const supported = await navigator.xr.isSessionSupported("immersive-ar");
+          webXRButton.disabled = !supported;
+          webXRButton.title = supported ? "Start WebXR AR placement." : "WebXR AR is unavailable in this browser.";
+        } catch {
+          webXRButton.disabled = true;
+          webXRButton.title = "WebXR AR is unavailable in this browser.";
+        }
+      }
+
+      async function toggleXR() {
+        if (xrSession) {
+          await xrSession.end();
+          return;
+        }
+
+        if (!navigator.xr || !scene.renderItems.length) {
+          setStatus("WebXR AR is unavailable here.", "bad");
+          return;
+        }
+
+        try {
+          if (gl.makeXRCompatible) {
+            await gl.makeXRCompatible();
+          }
+
+          xrSession = await navigator.xr.requestSession("immersive-ar", {
+            requiredFeatures: ["hit-test"],
+            optionalFeatures: ["local-floor"]
+          });
+          xrMode = true;
+          xrModelPlaced = false;
+          xrReticleVisible = false;
+          xrHitSeen = false;
+          webXRButton.textContent = "Exit AR";
+          xrSession.addEventListener("select", placeARModel);
+          xrSession.addEventListener("end", () => {
+            clearXRNoHitTimer();
+            xrMode = false;
+            xrSession = null;
+            xrReferenceSpace = null;
+            xrViewerSpace = null;
+            if (xrHitTestSource) {
+              xrHitTestSource.cancel();
+            }
+            xrHitTestSource = null;
+            xrModelPlaced = false;
+            xrReticleVisible = false;
+            xrHitSeen = false;
+            webXRButton.textContent = "View in AR";
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            resizeCanvas();
+            setStatus("AR closed.", "");
+            if (!animationStarted) {
+              requestAnimationFrame(renderFrame);
+            }
+          }, { once: true });
+
+          const layer = new XRWebGLLayer(xrSession, gl, { alpha: true, antialias: true });
+          xrSession.updateRenderState({ baseLayer: layer });
+          xrReferenceSpace = await xrSession.requestReferenceSpace("local");
+          xrViewerSpace = await xrSession.requestReferenceSpace("viewer");
+          xrHitTestSource = await xrSession.requestHitTestSource({ space: xrViewerSpace });
+          ensureReticleGeometry();
+          setStatus("Scan for a surface, then tap to place.", "good");
+          startXRNoHitTimer();
+          xrSession.requestAnimationFrame(renderXRFrame);
+        } catch (error) {
+          clearXRNoHitTimer();
+          xrMode = false;
+          xrSession = null;
+          xrReferenceSpace = null;
+          xrViewerSpace = null;
+          if (xrHitTestSource) {
+            xrHitTestSource.cancel();
+          }
+          xrHitTestSource = null;
+          webXRButton.textContent = "View in AR";
+          setStatus(error.message || "Could not start AR.", "bad");
+        }
+      }
+
+      function renderXRFrame(time, frame) {
+        const session = frame.session;
+        const pose = frame.getViewerPose(xrReferenceSpace);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+        if (pose) {
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          updateXRHitPose(frame);
+          for (const xrView of pose.views) {
+            const viewport = session.renderState.baseLayer.getViewport(xrView);
+            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+            if (xrModelPlaced) {
+              renderScene(xrView.projectionMatrix, xrView.transform.inverse.matrix, scratch.xrPlaced, "physical");
+            }
+            if (xrReticleVisible) {
+              renderReticle(xrView.projectionMatrix, xrView.transform.inverse.matrix);
+            }
+          }
+        }
+
+        if (xrMode) {
+          session.requestAnimationFrame(renderXRFrame);
+        }
+      }
+
+      function updateXRHitPose(frame) {
+        xrReticleVisible = false;
+        if (!xrHitTestSource) {
+          return;
+        }
+
+        const hitTestResults = frame.getHitTestResults(xrHitTestSource);
+        if (!hitTestResults.length) {
+          return;
+        }
+
+        const hitPose = hitTestResults[0].getPose(xrReferenceSpace);
+        if (!hitPose) {
+          return;
+        }
+
+        copyInto(scratch.xrHit, hitPose.transform.matrix);
+        xrReticleVisible = true;
+        xrHitSeen = true;
+        clearXRNoHitTimer();
+      }
+
+      function placeARModel() {
+        if (!xrMode || !xrReticleVisible) {
+          setStatus("Point at a detected surface before placing.", "");
+          return;
+        }
+
+        copyInto(scratch.xrPlaced, scratch.xrHit);
+        xrModelPlaced = true;
+        setStatus("Placed. Tap another surface to move it.", "good");
+      }
+
+      function startXRNoHitTimer() {
+        clearXRNoHitTimer();
+        xrNoHitTimer = setTimeout(async () => {
+          if (!xrSession || xrHitSeen) {
+            return;
+          }
+          setStatus("No AR surface found. Try more light and slow movement.", "bad");
+          try {
+            await xrSession.end();
+          } catch {
+            // Session may already be ending.
+          }
+        }, 12000);
+      }
+
+      function clearXRNoHitTimer() {
+        if (xrNoHitTimer) {
+          clearTimeout(xrNoHitTimer);
+          xrNoHitTimer = null;
+        }
+      }
+
+      function renderFrame() {
+        animationStarted = true;
+        if (!xrMode) {
+          resizeCanvas();
+          drawStandardFrame();
+          requestAnimationFrame(renderFrame);
+        } else {
+          animationStarted = false;
+        }
+      }
+
+      function drawStandardFrame() {
+        if (!gl) {
+          return;
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        const aspect = Math.max(canvas.width / Math.max(1, canvas.height), 0.001);
+        perspective(scratch.projection, Math.PI / 4, aspect, 0.01, 2000);
+
+        const distance = Math.max(1.8, scene.radius * view.zoom);
+        const cosPitch = Math.cos(view.pitch);
+        const eye = [
+          Math.sin(view.yaw) * cosPitch * distance + view.panX,
+          Math.sin(view.pitch) * distance + view.panY,
+          Math.cos(view.yaw) * cosPitch * distance
+        ];
+        lookAt(scratch.view, eye, [view.panX, view.panY, 0], [0, 1, 0]);
+        renderScene(scratch.projection, scratch.view, IDENTITY, "fit");
+      }
+
+      function renderScene(projectionMatrix, viewMatrix, placementMatrix, sizingMode) {
+        if (!scene.renderItems.length) {
+          return;
+        }
+
+        gl.useProgram(program);
+        gl.uniformMatrix4fv(uniforms.projection, false, projectionMatrix);
+        gl.uniformMatrix4fv(uniforms.view, false, viewMatrix);
+        gl.uniform3f(uniforms.lightDirection, -0.4, 0.8, 0.55);
+
+        for (const item of scene.renderItems) {
+          const baseMatrix = sizingMode === "physical" ? item.physicalMatrix : item.normalizedMatrix;
+          multiply(scratch.model, placementMatrix, baseMatrix);
+          gl.uniformMatrix4fv(uniforms.model, false, scratch.model);
+          gl.uniform4fv(uniforms.color, item.color);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, item.geometry.positionBuffer);
+          gl.enableVertexAttribArray(attribs.position);
+          gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, item.geometry.normalBuffer);
+          gl.enableVertexAttribArray(attribs.normal);
+          gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+          gl.drawArrays(gl.TRIANGLES, 0, item.geometry.vertexCount);
+        }
+      }
+
+      function ensureReticleGeometry() {
+        if (reticleGeometry) {
+          return reticleGeometry;
+        }
+
+        const positions = [];
+        const normals = [];
+        const innerRadius = 0.12;
+        const outerRadius = 0.135;
+        const segments = 72;
+
+        for (let i = 0; i < segments; i += 1) {
+          const a0 = (i / segments) * Math.PI * 2;
+          const a1 = ((i + 1) / segments) * Math.PI * 2;
+          const ix0 = Math.cos(a0) * innerRadius;
+          const iz0 = Math.sin(a0) * innerRadius;
+          const ox0 = Math.cos(a0) * outerRadius;
+          const oz0 = Math.sin(a0) * outerRadius;
+          const ix1 = Math.cos(a1) * innerRadius;
+          const iz1 = Math.sin(a1) * innerRadius;
+          const ox1 = Math.cos(a1) * outerRadius;
+          const oz1 = Math.sin(a1) * outerRadius;
+
+          positions.push(ox0, 0, oz0, ix0, 0, iz0, ix1, 0, iz1);
+          positions.push(ox0, 0, oz0, ix1, 0, iz1, ox1, 0, oz1);
+        }
+
+        for (let i = 0; i < positions.length / 3; i += 1) {
+          normals.push(0, 1, 0);
+        }
+
+        reticleGeometry = createGeometry(new Float32Array(positions), new Float32Array(normals));
+        return reticleGeometry;
+      }
+
+      function renderReticle(projectionMatrix, viewMatrix) {
+        const geometry = ensureReticleGeometry();
+
+        gl.useProgram(program);
+        gl.uniformMatrix4fv(uniforms.projection, false, projectionMatrix);
+        gl.uniformMatrix4fv(uniforms.view, false, viewMatrix);
+        gl.uniformMatrix4fv(uniforms.model, false, scratch.xrHit);
+        gl.uniform4f(uniforms.color, 0.22, 0.83, 0.6, 0.84);
+        gl.uniform3f(uniforms.lightDirection, -0.2, 0.9, 0.4);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, geometry.positionBuffer);
+        gl.enableVertexAttribArray(attribs.position);
+        gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, geometry.normalBuffer);
+        gl.enableVertexAttribArray(attribs.normal);
+        gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount);
+      }
+
+      function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+        const height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+      }
+
+      function resetView(showStatus) {
+        view.yaw = -0.52;
+        view.pitch = -0.22;
+        view.zoom = 3.1;
+        view.panX = 0;
+        view.panY = 0;
+        if (showStatus) {
+          setStatus("View reset.", "");
+        }
+      }
+
+      function addPointerEvents() {
+        canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+        canvas.addEventListener("pointerdown", (event) => {
+          canvas.setPointerCapture(event.pointerId);
+          view.activePointers.set(event.pointerId, {
+            x: event.clientX,
+            y: event.clientY,
+            shift: event.shiftKey,
+            button: event.button
+          });
+
+          if (view.activePointers.size === 2) {
+            const points = Array.from(view.activePointers.values());
+            view.lastPinchDistance = pointerDistance(points[0], points[1]);
+            view.lastPinchCenter = pointerCenter(points[0], points[1]);
+          }
+        });
+
+        canvas.addEventListener("pointermove", (event) => {
+          const pointer = view.activePointers.get(event.pointerId);
+          if (!pointer) {
+            return;
+          }
+
+          const previous = { x: pointer.x, y: pointer.y };
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+
+          if (view.activePointers.size >= 2) {
+            const points = Array.from(view.activePointers.values()).slice(0, 2);
+            const distance = pointerDistance(points[0], points[1]);
+            const center = pointerCenter(points[0], points[1]);
+
+            if (view.lastPinchDistance > 0) {
+              view.zoom *= view.lastPinchDistance / Math.max(distance, 1);
+              view.zoom = Math.max(0.45, Math.min(14, view.zoom));
+            }
+
+            if (view.lastPinchCenter) {
+              panBy(center.x - view.lastPinchCenter.x, center.y - view.lastPinchCenter.y);
+            }
+
+            view.lastPinchDistance = distance;
+            view.lastPinchCenter = center;
+            return;
+          }
+
+          const dx = event.clientX - previous.x;
+          const dy = event.clientY - previous.y;
+          if (event.shiftKey || pointer.shift || pointer.button === 2) {
+            panBy(dx, dy);
+          } else {
+            view.yaw += dx * 0.006;
+            view.pitch += dy * 0.005;
+            view.pitch = Math.max(-1.34, Math.min(1.34, view.pitch));
+          }
+        });
+
+        const endPointer = (event) => {
+          view.activePointers.delete(event.pointerId);
+          view.lastPinchDistance = 0;
+          view.lastPinchCenter = null;
+        };
+
+        canvas.addEventListener("pointerup", endPointer);
+        canvas.addEventListener("pointercancel", endPointer);
+
+        canvas.addEventListener("wheel", (event) => {
+          event.preventDefault();
+          view.zoom *= Math.exp(event.deltaY * 0.001);
+          view.zoom = Math.max(0.45, Math.min(14, view.zoom));
+        }, { passive: false });
+      }
+
+      function addButtonEvents() {
+        resetButton.addEventListener("click", () => resetView(true));
+        webXRButton.addEventListener("click", () => {
+          toggleXR();
+        });
+      }
+
+      function pointerDistance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      function pointerCenter(a, b) {
+        return {
+          x: (a.x + b.x) * 0.5,
+          y: (a.y + b.y) * 0.5
+        };
+      }
+
+      function panBy(dx, dy) {
+        const scalar = scene.radius * view.zoom / Math.max(canvas.clientWidth, 1);
+        view.panX -= dx * scalar * 0.85;
+        view.panY += dy * scalar * 0.85;
+      }
+
+      function mat4() {
+        return new Float32Array(IDENTITY);
+      }
+
+      function copyInto(out, matrix) {
+        for (let i = 0; i < 16; i += 1) {
+          out[i] = matrix[i];
+        }
+        return out;
+      }
+
+      function multiply(out, a, b) {
+        const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+        const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+        const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+        let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+        out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
+        out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
+        out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
+        out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+        return out;
+      }
+
+      function perspective(out, fovy, aspect, near, far) {
+        const f = 1.0 / Math.tan(fovy / 2);
+        out[0] = f / aspect;
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 0;
+        out[4] = 0;
+        out[5] = f;
+        out[6] = 0;
+        out[7] = 0;
+        out[8] = 0;
+        out[9] = 0;
+        out[11] = -1;
+        out[12] = 0;
+        out[13] = 0;
+        out[15] = 0;
+
+        const nf = 1 / (near - far);
+        out[10] = (far + near) * nf;
+        out[14] = 2 * far * near * nf;
+        return out;
+      }
+
+      function lookAt(out, eye, center, up) {
+        let zx = eye[0] - center[0];
+        let zy = eye[1] - center[1];
+        let zz = eye[2] - center[2];
+        let len = Math.hypot(zx, zy, zz);
+        if (len === 0) {
+          zz = 1;
+        } else {
+          zx /= len;
+          zy /= len;
+          zz /= len;
+        }
+
+        let xx = up[1] * zz - up[2] * zy;
+        let xy = up[2] * zx - up[0] * zz;
+        let xz = up[0] * zy - up[1] * zx;
+        len = Math.hypot(xx, xy, xz);
+        if (len === 0) {
+          xx = 1;
+        } else {
+          xx /= len;
+          xy /= len;
+          xz /= len;
+        }
+
+        const yx = zy * xz - zz * xy;
+        const yy = zz * xx - zx * xz;
+        const yz = zx * xy - zy * xx;
+
+        out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+        out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+        out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+        out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+        out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+        out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+        out[15] = 1;
+        return out;
+      }
+
+      function makePhysicalScaleMatrix(bounds, scale) {
+        const centerX = (bounds.min[0] + bounds.max[0]) * 0.5;
+        const centerZ = (bounds.min[2] + bounds.max[2]) * 0.5;
+        return new Float32Array([
+          scale, 0, 0, 0,
+          0, scale, 0, 0,
+          0, 0, scale, 0,
+          -centerX * scale, -bounds.min[1] * scale, -centerZ * scale, 1
+        ]);
+      }
+
+      function isIOSDevice() {
+        const userAgent = navigator.userAgent || "";
+        const platform = navigator.platform || "";
+        return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      }
+
+      function isMobileDevice() {
+        const userAgent = navigator.userAgent || "";
+        const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+        return isIOSDevice() || /Android/i.test(userAgent) || (coarse && window.innerWidth <= 1024);
+      }
+
+      function setStatus(text, tone) {
+        statusEl.textContent = text;
+        statusEl.dataset.tone = tone || "";
+      }
+    }
+
+    function clearOutputs() {
+      if (state.htmlUrl) {
+        URL.revokeObjectURL(state.htmlUrl);
+      }
+      if (state.usdzUrl) {
+        URL.revokeObjectURL(state.usdzUrl);
+      }
+      state.htmlUrl = "";
+      state.usdzUrl = "";
+    }
+
+    function triggerDownload(url, fileName) {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.rel = "noopener";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+
+    function showGeneratedDialog(fileNames) {
+      generatedFiles.replaceChildren();
+      for (const fileName of fileNames) {
+        const item = document.createElement("li");
+        item.textContent = fileName;
+        generatedFiles.appendChild(item);
+      }
+
+      if (typeof generatedDialog.showModal === "function") {
+        generatedDialog.showModal();
+      }
+    }
+
+    function setBusy(isBusy) {
+      generateButton.disabled = isBusy || !state.model;
+      dropZone.style.pointerEvents = isBusy ? "none" : "";
+    }
+
+    function setStatus(text, tone) {
+      statusEl.textContent = text;
+      statusEl.dataset.tone = tone || "";
+    }
+
+    function nextFrame() {
+      return new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+
+    function fileBaseFromName(fileName) {
+      return MDJUSDZ.sanitizeFileBase(fileName || "model");
+    }
+
+    function escapeHTML(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+
+    function escapeAttribute(value) {
+      return escapeHTML(value);
+    }
+
+    function escapeScriptData(value) {
+      return String(value == null ? "" : value)
+        .replace(/<\/script/gi, "<\\/script")
+        .replace(/<!--/g, "<\\!--");
+    }
+  })();
+  </script>
+</body>
+</html>
